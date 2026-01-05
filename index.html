@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AoE2 Civilization Quiz</title>
+    <script type="module" src="/src/main.ts" defer></script>
+  </head>
+
+  <body>
+    <main class="container">
+      <h1>AoE2 Civilization Quiz</h1>
+
+      <div id="top-controls">
+        <div id="locale-selector">
+          <label for="locale-dropdown">Language:</label>
+          <select id="locale-dropdown">
+            <option value="en">English</option>
+            <option value="de">Deutsch</option>
+            <option value="es">Español</option>
+            <option value="fr">Français</option>
+            <option value="it">Italiano</option>
+            <option value="ru">Русский</option>
+            <option value="zh">中文</option>
+            <option value="tw">繁體中文</option>
+            <option value="jp">日本語</option>
+            <option value="ko">한국어</option>
+            <option value="br">Português (BR)</option>
+            <option value="mx">Español (MX)</option>
+            <option value="pl">Polski</option>
+            <option value="tr">Türkçe</option>
+            <option value="vi">Tiếng Việt</option>
+            <option value="hi">हिन्दी</option>
+            <option value="ms">Bahasa Melayu</option>
+          </select>
+        </div>
+        <button id="theme-toggle">🌙</button>
+        <button id="settings-button">⚙️ Settings</button>
+      </div>
+
+      <div id="settings-modal" style="display: none;">
+        <div id="settings-content">
+          <h3>Question Types</h3>
+          <div class="settings-group">
+            <label>
+              <input type="checkbox" id="setting-bonuses" checked />
+              Civilization Bonuses
+            </label>
+            <label>
+              <input type="checkbox" id="setting-units" checked />
+              Unique Units
+            </label>
+            <label>
+              <input type="checkbox" id="setting-techs" checked />
+              Unique Technologies
+            </label>
+            <label>
+              <input type="checkbox" id="setting-team" checked />
+              Team Bonus
+            </label>
+          </div>
+          <button id="settings-close">Close</button>
+        </div>
+      </div>
+
+      <div id="quiz-container">
+        <div id="question-container">
+          <div id="question-label"></div>
+          <h2 id="question"></h2>
+          <div id="image-container"></div>
+        </div>
+
+        <form id="answer-form">
+          <input
+            type="text"
+            id="answer-input"
+            placeholder="Enter civilization name..."
+            autocomplete="off"
+          />
+          <button type="submit" id="submit-button">Submit Answer</button>
+          <button type="button" id="next-button" style="display: none;">Next Question</button>
+        </form>
+
+        <div id="feedback"></div>
+        <div id="score">Score: <span id="score-value">0</span> / <span id="total-value">0</span></div>
+      </div>
+    </main>
+  </body>
+</html>
