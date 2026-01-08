@@ -3,11 +3,18 @@ import './styles.css';
 interface QuizQuestion {
   civilization: string;
   hint: string;
+  
+
   civType?: string;
   bonuses?: string[];
   uniqueUnits?: string[];
   uniqueTechs?: string[];
   teamBonus?: string;
+  
+  bonusesLocalized?: string;
+  uniqueUnitsLocalized?: string;
+  uniqueTechsLocalized?: string;
+  teamBonusLocalized?: string;
 }
 
 interface GameData {
@@ -34,6 +41,7 @@ interface QuestionSettings {
   team: boolean;
   locale: string;
   theme: 'light' | 'dark';
+  nofun: boolean;
 }
 
 function loadSettings(): QuestionSettings {
@@ -44,6 +52,10 @@ function loadSettings(): QuestionSettings {
       // Add theme if it doesn't exist in old saved settings
       if (!parsed.theme) {
         parsed.theme = 'light';
+      }
+      // Add nofun if it doesn't exist in old saved settings
+      if (parsed.nofun === undefined) {
+        parsed.nofun = false;
       }
       return parsed;
     } catch (e) {
@@ -57,6 +69,7 @@ function loadSettings(): QuestionSettings {
     team: true,
     locale: "en",
     theme: 'light',
+    nofun: false,
   };
 }
 
@@ -118,13 +131,22 @@ function findBestMatch(input: string): string | null {
 }
 
 function handleAutocompleteInput(event: Event): void {
+  const inputEvent = event as InputEvent;
   const input = event.target as HTMLInputElement;
   const cursorPos = input.selectionStart || 0;
+  const selectionEnd = input.selectionEnd || 0;
+
+  // Detect if user is deleting (backspace/delete keys)
+  if (inputEvent.inputType === 'deleteContentBackward' || inputEvent.inputType === 'deleteContentForward') {
+    return;
+  }
+
+  // Only autocomplete if cursor is at the end and there's no existing selection
+  if (cursorPos !== input.value.length || cursorPos !== selectionEnd) {
+    return;
+  }
+
   const currentValue = input.value;
-
-  // Only autocomplete if cursor is at the end
-  if (cursorPos !== currentValue.length) return;
-
   const bestMatch = findBestMatch(currentValue);
 
   if (bestMatch && currentValue) {
@@ -146,6 +168,11 @@ function normalizeAnswer(answer: string): string {
 function parseHelptext(helptext: string) {
   if (!helptext) return {};
 
+  let bonusesLocalized = 'Civ Bonus';
+  let uniqueUnitsLocalized = '';
+  let uniqueTechsLocalized = '';
+  let teamBonusLocalized = '';
+
   let civType = '';
   const bonuses: string[] = [];
   const uniqueUnits: string[] = [];
@@ -161,16 +188,19 @@ function parseHelptext(helptext: string) {
       if (inBlock === "bonus") {
         const block = helptext.slice(blockStartIndex, lineStartIndex).trim().replace(/<br>/g, "").replace(/<\/b>/g, "").replace(/\n/g, "").trim();
         bonuses.push(...block.split("•").filter((line) => line.length > 0).map((line) => line.trim()));
+        uniqueUnitsLocalized = helptext.slice(lineStartIndex, i).replace(/<b>/g, "").trim();
         inBlock = "unit";
       }
       else if (inBlock === "unit") {
         const block = helptext.slice(blockStartIndex, lineStartIndex).trim().replace(/<br>/g, "").replace(/<\/b>/g, "").trim();
         uniqueUnits.push(...block.split(", ").map((s) => s.replace(/•/g, "").trim()));
+        uniqueTechsLocalized = helptext.slice(lineStartIndex, i).replace(/<b>/g, "").trim();
         inBlock = "tech";
       }
       else if (inBlock === "tech") {
         const block = helptext.slice(blockStartIndex, lineStartIndex).trim().replace(/<br>/g, "").replace(/<\/b>/g, "").replace(/\n/g, "").trim();
         uniqueTechs.push(...block.split("•").filter((line) => line.length > 0).map((line) => line.trim()));
+        teamBonusLocalized = helptext.slice(lineStartIndex, i).replace(/<b>/g, "").trim();
         inBlock = "team";
       }
 
@@ -197,7 +227,10 @@ function parseHelptext(helptext: string) {
     }
   }
 
-  return { civType, bonuses, uniqueUnits, uniqueTechs, teamBonus };
+
+
+
+  return { civType, bonuses, uniqueUnits, uniqueTechs, teamBonus, bonusesLocalized, uniqueUnitsLocalized, uniqueTechsLocalized, teamBonusLocalized };
 }
 
 function generateQuestion(): QuizQuestion {
@@ -220,8 +253,12 @@ function generateQuestion(): QuizQuestion {
   const localizedName = getLocalizedString(civNameId);
   const localizedHelptext = getLocalizedString(civHelptextId);
 
+
+
   // console.log(localizedHelptext);
   const parsed = parseHelptext(localizedHelptext);
+
+
   // console.log('Parsed helptext:', parsed);
 
   return {
@@ -239,24 +276,24 @@ function getRandomQuestion(): { label: string; text: string } {
   // Collect available question types based on settings
   if (questionSettings.bonuses && currentQuestion.bonuses && currentQuestion.bonuses.length > 0) {
     currentQuestion.bonuses.forEach(bonus => {
-      availableQuestions.push({ type: 'bonus', label: 'Civ Bonus', text: bonus });
+      availableQuestions.push({ type: 'bonus', label: currentQuestion?.bonusesLocalized ?? "Civ Bonus", text: bonus });
     });
   }
 
   if (questionSettings.units && currentQuestion.uniqueUnits) {
     currentQuestion.uniqueUnits.forEach(unit => {
-      availableQuestions.push({ type: 'unit', label: 'Unique Unit', text: unit });
+      availableQuestions.push({ type: 'unit', label: currentQuestion?.uniqueUnitsLocalized ?? 'Unique Unit', text: unit });
     });
   }
 
   if (questionSettings.techs && currentQuestion.uniqueTechs) {
     currentQuestion.uniqueTechs.forEach(tech => {
-      availableQuestions.push({ type: 'tech', label: 'Unique Tech', text: tech });
+      availableQuestions.push({ type: 'tech', label: currentQuestion?.uniqueTechsLocalized ?? 'Unique Tech', text: tech });
     });
   }
 
   if (questionSettings.team && currentQuestion.teamBonus) {
-    availableQuestions.push({ type: 'team', label: 'Team Bonus', text: currentQuestion.teamBonus });
+    availableQuestions.push({ type: 'team', label: currentQuestion?.teamBonusLocalized ?? 'Team Bonus', text: currentQuestion.teamBonus });
   }
 
   if (availableQuestions.length === 0) {
@@ -399,12 +436,31 @@ async function initApp() {
     const settingUnits = document.querySelector("#setting-units") as HTMLInputElement;
     const settingTechs = document.querySelector("#setting-techs") as HTMLInputElement;
     const settingTeam = document.querySelector("#setting-team") as HTMLInputElement;
+    const settingNoFun = document.querySelector("#setting-nofun") as HTMLInputElement;
 
     // Load saved settings into checkboxes
     if (settingBonuses) settingBonuses.checked = questionSettings.bonuses;
     if (settingUnits) settingUnits.checked = questionSettings.units;
     if (settingTechs) settingTechs.checked = questionSettings.techs;
     if (settingTeam) settingTeam.checked = questionSettings.team;
+    if (settingNoFun) settingNoFun.checked = questionSettings.nofun;
+
+    // Update button visibility based on No Fun Mode
+    const updateButtonVisibility = () => {
+      const submitButton = document.querySelector("#submit-button") as HTMLButtonElement;
+      const submitButtonNoFun = document.querySelector("#submit-button-nofun") as HTMLButtonElement;
+
+      if (questionSettings.nofun) {
+        if (submitButton) submitButton.style.display = "none";
+        if (submitButtonNoFun) submitButtonNoFun.style.display = "flex";
+      } else {
+        if (submitButton) submitButton.style.display = "block";
+        if (submitButtonNoFun) submitButtonNoFun.style.display = "none";
+      }
+    };
+
+    // Initial button visibility
+    updateButtonVisibility();
 
     [settingBonuses, settingUnits, settingTechs, settingTeam].forEach(checkbox => {
       if (checkbox) {
@@ -430,8 +486,86 @@ async function initApp() {
       }
     });
 
+    // Handle No Fun Mode toggle
+    if (settingNoFun) {
+      settingNoFun.addEventListener("change", () => {
+        questionSettings.nofun = settingNoFun.checked;
+        updateButtonVisibility();
+        saveSettings(questionSettings);
+      });
+    }
+
     if (answerInput) {
       answerInput.addEventListener("input", handleAutocompleteInput);
+
+      // Handle backspace to delete selection AND last typed character
+      answerInput.addEventListener("keydown", (e) => {
+        if (e.key === "Backspace") {
+          const input = e.target as HTMLInputElement;
+          const selectionStart = input.selectionStart || 0;
+          const selectionEnd = input.selectionEnd || 0;
+
+          // If there's a selection (autocompleted text)
+          if (selectionStart !== selectionEnd && selectionStart < selectionEnd) {
+            e.preventDefault();
+            // Delete the selection and the last typed character
+            const newValue = input.value.substring(0, Math.max(0, selectionStart - 1));
+            input.value = newValue;
+            input.setSelectionRange(newValue.length, newValue.length);
+
+            // Trigger autocomplete with the new value
+            const bestMatch = findBestMatch(newValue);
+            if (bestMatch && newValue) {
+              input.value = bestMatch;
+              input.setSelectionRange(newValue.length, bestMatch.length);
+            }
+          }
+        }
+      });
+    }
+
+    // Handle submit button GIF animation on hover/click
+    const submitButton = document.querySelector("#submit-button") as HTMLButtonElement;
+    const animatedImg = submitButton?.querySelector(".animated-img") as HTMLImageElement;
+
+    if (submitButton && animatedImg) {
+      const gifSrc = "/gifs/stan-twt-skeleton-banging-shield.gif";
+      let animationTimeout: number | null = null;
+
+      const playAnimation = () => {
+        // Reload GIF to restart from beginning
+        animatedImg.src = gifSrc + "?t=" + new Date().getTime();
+        submitButton.classList.add("playing");
+
+        // Clear any existing timeout
+        if (animationTimeout) {
+          clearTimeout(animationTimeout);
+        }
+
+        // Stop animation after GIF duration (estimate ~2 seconds)
+        animationTimeout = window.setTimeout(() => {
+          submitButton.classList.remove("playing");
+        }, 2000);
+      };
+
+      const stopAnimation = () => {
+        if (animationTimeout) {
+          clearTimeout(animationTimeout);
+        }
+        submitButton.classList.remove("playing");
+      };
+
+      // Desktop: hover
+      submitButton.addEventListener("mouseenter", playAnimation);
+      submitButton.addEventListener("mouseleave", stopAnimation);
+
+      // Mobile/Touch: touchstart
+      submitButton.addEventListener("touchstart", () => {
+        playAnimation();
+      });
+
+      // All devices: click
+      submitButton.addEventListener("click", playAnimation);
     }
 
     if (answerForm) {

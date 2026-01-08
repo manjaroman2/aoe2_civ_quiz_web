@@ -43,3 +43,7 @@ Or use Git:
 1. Push to GitHub
 2. Import in Netlify with build command: `bun install && bun run build`
 3. Publish directory: `dist`
+
+## TODO
+
+- improve mobile experience
