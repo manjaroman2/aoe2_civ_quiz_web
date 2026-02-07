@@ -370,6 +370,16 @@ button {
   max-width: 300px;
 }
 
+#answer-input::selection {
+  background-color: transparent;
+  color: #888;
+}
+
+body[data-theme="dark"] #answer-input::selection {
+  background-color: transparent;
+  color: #777;
+}
+
 #answer-input:disabled {
   opacity: 0.6;
   cursor: not-allowed;
@@ -385,6 +395,38 @@ button {
   font-size: 1.1em;
   font-weight: bold;
   margin: 10px 0;
+  position: relative;
+}
+
+/* Green particle effect */
+.particle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: particle-burst 0.8s ease-out forwards;
+}
+
+.particle::before {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: inherit;
+  filter: blur(2px);
+}
+
+@keyframes particle-burst {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--tx), var(--ty)) scale(0);
+  }
 }
 
 #next-button {

@@ -34,6 +34,38 @@ let totalQuestions = 0;
 let askedCivs: Set<string> = new Set();
 let allCivNames: string[] = [];
 
+function createParticleEffect(element: Element) {
+  const rect = element.getBoundingClientRect();
+  const centerX = rect.width / 2;
+  const centerY = rect.height / 2;
+
+  const particleCount = 12;
+  const colors = ['#22c55e', '#4ade80', '#86efac', '#16a34a', '#15803d'];
+
+  for (let i = 0; i < particleCount; i++) {
+    const particle = document.createElement('div');
+    particle.className = 'particle';
+
+    // Random angle for burst direction
+    const angle = (Math.PI * 2 * i) / particleCount + (Math.random() - 0.5) * 0.5;
+    const distance = 40 + Math.random() * 30;
+    const tx = Math.cos(angle) * distance;
+    const ty = Math.sin(angle) * distance;
+
+    particle.style.setProperty('--tx', `${tx}px`);
+    particle.style.setProperty('--ty', `${ty}px`);
+    particle.style.left = `${centerX}px`;
+    particle.style.top = `${centerY}px`;
+    particle.style.background = colors[Math.floor(Math.random() * colors.length)];
+    particle.style.boxShadow = `0 0 6px ${particle.style.background}`;
+
+    element.appendChild(particle);
+
+    // Remove particle after animation
+    setTimeout(() => particle.remove(), 800);
+  }
+}
+
 interface QuestionSettings {
   bonuses: boolean;
   units: boolean;
@@ -246,6 +278,7 @@ function generateQuestion(): QuizQuestion {
 
   const randomCiv = civs[Math.floor(Math.random() * civs.length)];
   console.log(randomCiv);
+  console.log(civs);
   askedCivs.add(randomCiv);
 
   const civNameId = gameData.civ_names[randomCiv];
@@ -315,6 +348,8 @@ function displayQuestion() {
   const submitButton = document.querySelector("#submit-button") as HTMLButtonElement;
   const nextButton = document.querySelector("#next-button") as HTMLButtonElement;
 
+  const submitButtonNoFun = document.querySelector("#submit-button-nofun") as HTMLButtonElement;
+
   if (questionLabelEl && questionEl && imageContainer && feedbackEl && answerInput && submitButton && nextButton) {
     const question = getRandomQuestion();
 
@@ -324,7 +359,14 @@ function displayQuestion() {
     feedbackEl.innerHTML = "";
     answerInput.value = "";
     answerInput.disabled = false;
-    submitButton.style.display = "block";
+    // Respect nofun mode when showing submit button
+    if (questionSettings.nofun) {
+      submitButton.style.display = "none";
+      if (submitButtonNoFun) submitButtonNoFun.style.display = "flex";
+    } else {
+      submitButton.style.display = "block";
+      if (submitButtonNoFun) submitButtonNoFun.style.display = "none";
+    }
     nextButton.style.display = "none";
     answerInput.focus();
   }
@@ -350,6 +392,11 @@ function checkAnswer(userAnswer: string) {
     if (feedbackEl) {
       feedbackEl.innerHTML = `<div style="color: green; font-weight: bold;">✓ Correct! It's ${currentQuestion.civilization}</div>`;
     }
+    // Trigger particle effect on score area
+    const scoreEl = document.querySelector("#score");
+    if (scoreEl) {
+      createParticleEffect(scoreEl);
+    }
   } else {
     if (feedbackEl) {
       feedbackEl.innerHTML = `<div style="color: red; font-weight: bold;">✗ Wrong! The correct answer is ${currentQuestion.civilization}</div>`;
@@ -359,8 +406,11 @@ function checkAnswer(userAnswer: string) {
   if (scoreValueEl) scoreValueEl.textContent = score.toString();
   if (totalValueEl) totalValueEl.textContent = totalQuestions.toString();
 
+  const submitButtonNoFun = document.querySelector("#submit-button-nofun") as HTMLButtonElement;
+
   if (answerInput) answerInput.disabled = true;
   if (submitButton) submitButton.style.display = "none";
+  if (submitButtonNoFun) submitButtonNoFun.style.display = "none";
   if (nextButton) {
     nextButton.style.display = "block";
     nextButton.focus();
@@ -574,9 +624,13 @@ async function initApp() {
 
         // Check which button is visible and act accordingly
         const submitButton = document.querySelector("#submit-button") as HTMLButtonElement;
+        const submitButtonNoFun = document.querySelector("#submit-button-nofun") as HTMLButtonElement;
         const nextButton = document.querySelector("#next-button") as HTMLButtonElement;
 
-        if (submitButton && submitButton.style.display !== "none") {
+        const submitVisible = (submitButton && submitButton.style.display !== "none") ||
+                              (submitButtonNoFun && submitButtonNoFun.style.display !== "none");
+
+        if (submitVisible) {
           // Submit answer
           if (answerInput && answerInput.value.trim()) {
             checkAnswer(answerInput.value);
