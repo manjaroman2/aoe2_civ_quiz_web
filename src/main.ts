@@ -1,22 +1,5 @@
 import './styles.css';
 
-interface QuizQuestion {
-  civilization: string;
-  hint: string;
-  
-
-  civType?: string;
-  bonuses?: string[];
-  uniqueUnits?: string[];
-  uniqueTechs?: string[];
-  teamBonus?: string;
-  
-  bonusesLocalized?: string;
-  uniqueUnitsLocalized?: string;
-  uniqueTechsLocalized?: string;
-  teamBonusLocalized?: string;
-}
-
 interface GameData {
   civ_names: Record<string, string>;
   civ_helptexts: Record<string, string>;
@@ -26,13 +9,108 @@ interface LocaleStrings {
   [key: string]: string;
 }
 
+interface QueuedQuestion {
+  label: string;
+  text: string;
+  civilization: string;
+}
+
 let gameData: GameData | null = null;
 let localeStrings: LocaleStrings = {};
-let currentQuestion: QuizQuestion | null = null;
+let questionQueue: QueuedQuestion[] = [];
+let questionIndex = 0;
 let score = 0;
-let totalQuestions = 0;
-let askedCivs: Set<string> = new Set();
 let allCivNames: string[] = [];
+let scoresheetTotal = parseInt(localStorage.getItem('scoresheetTotal') || '0', 10);
+
+function applyFunMode(nofun: boolean) {
+  if (!nofun) {
+    document.body.setAttribute('data-funmode', 'true');
+  } else {
+    document.body.removeAttribute('data-funmode');
+  }
+}
+
+function spawnConfetti(count: number) {
+  const colors = ['#ff0000', '#ff8800', '#ffff00', '#00ff00', '#0088ff', '#8800ff', '#ff00ff', '#00ffff'];
+  for (let i = 0; i < count; i++) {
+    const confetti = document.createElement('div');
+    confetti.className = 'fun-confetti';
+    confetti.style.left = `${Math.random() * 100}vw`;
+    confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+    confetti.style.width = `${6 + Math.random() * 10}px`;
+    confetti.style.height = `${6 + Math.random() * 10}px`;
+    confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    confetti.style.animationDuration = `${1 + Math.random() * 2}s`;
+    confetti.style.animationDelay = `${Math.random() * 0.5}s`;
+    document.body.appendChild(confetti);
+    setTimeout(() => confetti.remove(), 3500);
+  }
+}
+
+function triggerScreenShake() {
+  document.body.classList.add('fun-shake');
+  setTimeout(() => document.body.classList.remove('fun-shake'), 600);
+}
+
+function getCaretPixelPosition(input: HTMLInputElement): { x: number; y: number } {
+  const rect = input.getBoundingClientRect();
+  const style = getComputedStyle(input);
+  const span = document.createElement('span');
+  span.style.font = style.font;
+  span.style.fontSize = style.fontSize;
+  span.style.fontFamily = style.fontFamily;
+  span.style.letterSpacing = style.letterSpacing;
+  span.style.position = 'absolute';
+  span.style.visibility = 'hidden';
+  span.style.whiteSpace = 'pre';
+  span.textContent = input.value.substring(0, input.selectionStart || input.value.length);
+  document.body.appendChild(span);
+  const textWidth = span.getBoundingClientRect().width;
+  span.remove();
+
+  const paddingLeft = parseFloat(style.paddingLeft);
+  const x = Math.min(rect.left + paddingLeft + textWidth, rect.right - 10);
+  return { x, y: rect.top + rect.height / 2 };
+}
+
+function spawnTypingParticles(x: number, y: number) {
+  const colors = ['#ff0088', '#00ff88', '#0088ff', '#ff8800', '#ff00ff', '#00ffff', '#ffff00', '#ff4444', '#8800ff', '#00ff00'];
+  const count = 5 + Math.floor(Math.random() * 4);
+
+  for (let i = 0; i < count; i++) {
+    const particle = document.createElement('div');
+    particle.className = 'typing-particle';
+    const angle = Math.random() * Math.PI * 2;
+    const distance = 20 + Math.random() * 35;
+    const tx = Math.cos(angle) * distance;
+    const ty = Math.sin(angle) * distance;
+
+    particle.style.setProperty('--tx', `${tx}px`);
+    particle.style.setProperty('--ty', `${ty}px`);
+    particle.style.left = `${x}px`;
+    particle.style.top = `${y}px`;
+    particle.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+    particle.style.boxShadow = `0 0 4px ${particle.style.backgroundColor}`;
+
+    document.body.appendChild(particle);
+    setTimeout(() => particle.remove(), 600);
+  }
+}
+
+function triggerTypingShake() {
+  document.body.classList.remove('fun-typing-shake');
+  void document.body.offsetWidth;
+  document.body.classList.add('fun-typing-shake');
+  setTimeout(() => document.body.classList.remove('fun-typing-shake'), 100);
+}
+
+function triggerInputPop(input: HTMLInputElement) {
+  input.classList.remove('fun-typing-pop');
+  void input.offsetWidth;
+  input.classList.add('fun-typing-pop');
+  setTimeout(() => input.classList.remove('fun-typing-pop'), 200);
+}
 
 function createParticleEffect(element: Element) {
   const rect = element.getBoundingClientRect();
@@ -74,6 +152,7 @@ interface QuestionSettings {
   locale: string;
   theme: 'light' | 'dark';
   nofun: boolean;
+  questionCount: number;
 }
 
 function loadSettings(): QuestionSettings {
@@ -89,6 +168,9 @@ function loadSettings(): QuestionSettings {
       if (parsed.nofun === undefined) {
         parsed.nofun = false;
       }
+      if (parsed.questionCount === undefined) {
+        parsed.questionCount = 10;
+      }
       return parsed;
     } catch (e) {
       console.error('Failed to parse saved settings:', e);
@@ -101,7 +183,8 @@ function loadSettings(): QuestionSettings {
     team: true,
     locale: "en",
     theme: 'light',
-    nofun: false,
+    nofun: true,
+    questionCount: 10,
   };
 }
 
@@ -200,6 +283,9 @@ function normalizeAnswer(answer: string): string {
 function parseHelptext(helptext: string) {
   if (!helptext) return {};
 
+  // Normalize whitespace between colon and </b> (e.g. "Spezialeinheiten: </b>" → "Spezialeinheiten:</b>")
+  helptext = helptext.replace(/([:：])\s+<\/b>/g, '$1</b>');
+
   let bonusesLocalized = 'Civ Bonus';
   let uniqueUnitsLocalized = '';
   let uniqueTechsLocalized = '';
@@ -265,80 +351,123 @@ function parseHelptext(helptext: string) {
   return { civType, bonuses, uniqueUnits, uniqueTechs, teamBonus, bonusesLocalized, uniqueUnitsLocalized, uniqueTechsLocalized, teamBonusLocalized };
 }
 
-function generateQuestion(): QuizQuestion {
+function generateQuestionSet(): QueuedQuestion[] {
   if (!gameData) throw new Error("Game data not loaded");
 
-  const civs = Object.keys(gameData.civ_names).filter(civ => !askedCivs.has(civ));
+  const questions: QueuedQuestion[] = [];
 
-  // If all civs have been asked, reset
-  if (civs.length === 0) {
-    askedCivs.clear();
-    return generateQuestion();
+  for (const civKey of Object.keys(gameData.civ_names)) {
+    const civNameId = gameData.civ_names[civKey];
+    const civHelptextId = gameData.civ_helptexts[civKey];
+    const localizedName = getLocalizedString(civNameId);
+    const localizedHelptext = getLocalizedString(civHelptextId);
+    const parsed = parseHelptext(localizedHelptext);
+
+    console.log(civKey, parsed);
+    if (questionSettings.bonuses && parsed.bonuses && parsed.bonuses.length > 0) {
+      for (const bonus of parsed.bonuses) {
+        questions.push({ label: parsed.bonusesLocalized ?? "Civ Bonus", text: bonus, civilization: localizedName });
+      }
+    }
+
+    if (questionSettings.units && parsed.uniqueUnits) {
+      for (const unit of parsed.uniqueUnits) {
+        questions.push({ label: parsed.uniqueUnitsLocalized ?? 'Unique Unit', text: unit, civilization: localizedName });
+      }
+    }
+
+    if (questionSettings.techs && parsed.uniqueTechs) {
+      for (const tech of parsed.uniqueTechs) {
+        questions.push({ label: parsed.uniqueTechsLocalized ?? 'Unique Tech', text: tech, civilization: localizedName });
+      }
+    }
+
+    if (questionSettings.team && parsed.teamBonus) {
+      questions.push({ label: parsed.teamBonusLocalized ?? 'Team Bonus', text: parsed.teamBonus, civilization: localizedName });
+    }
   }
 
-  const randomCiv = civs[Math.floor(Math.random() * civs.length)];
-  console.log(randomCiv);
-  console.log(civs);
-  askedCivs.add(randomCiv);
+  // Fisher-Yates shuffle
+  for (let i = questions.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [questions[i], questions[j]] = [questions[j], questions[i]];
+  }
 
-  const civNameId = gameData.civ_names[randomCiv];
-  const civHelptextId = gameData.civ_helptexts[randomCiv];
-  const localizedName = getLocalizedString(civNameId);
-  const localizedHelptext = getLocalizedString(civHelptextId);
-
-
-
-  // console.log(localizedHelptext);
-  const parsed = parseHelptext(localizedHelptext);
-
-
-  // console.log('Parsed helptext:', parsed);
-
-  return {
-    civilization: localizedName,
-    hint: localizedHelptext || `Civilization: ${localizedName}`,
-    ...parsed
-  };
+  return questions.slice(0, questionSettings.questionCount);
 }
 
-function getRandomQuestion(): { label: string; text: string } {
-  if (!currentQuestion) return { label: '', text: "Guess the civilization" };
-
-  const availableQuestions: { type: string; label: string; text: string }[] = [];
-
-  // Collect available question types based on settings
-  if (questionSettings.bonuses && currentQuestion.bonuses && currentQuestion.bonuses.length > 0) {
-    currentQuestion.bonuses.forEach(bonus => {
-      availableQuestions.push({ type: 'bonus', label: currentQuestion?.bonusesLocalized ?? "Civ Bonus", text: bonus });
-    });
+function animateScoreToScoresheet(onComplete: () => void) {
+  const scoreEl = document.querySelector("#score") as HTMLElement;
+  const scoresheetEl = document.querySelector("#scoresheet") as HTMLElement;
+  if (!scoreEl || !scoresheetEl) {
+    onComplete();
+    return;
   }
 
-  if (questionSettings.units && currentQuestion.uniqueUnits) {
-    currentQuestion.uniqueUnits.forEach(unit => {
-      availableQuestions.push({ type: 'unit', label: currentQuestion?.uniqueUnitsLocalized ?? 'Unique Unit', text: unit });
-    });
-  }
+  const scoreRect = scoreEl.getBoundingClientRect();
+  const sheetRect = scoresheetEl.getBoundingClientRect();
 
-  if (questionSettings.techs && currentQuestion.uniqueTechs) {
-    currentQuestion.uniqueTechs.forEach(tech => {
-      availableQuestions.push({ type: 'tech', label: currentQuestion?.uniqueTechsLocalized ?? 'Unique Tech', text: tech });
-    });
-  }
+  const floater = document.createElement("div");
+  floater.className = "score-floater";
+  floater.textContent = `+${score}`;
+  floater.style.left = `${scoreRect.left + scoreRect.width / 2}px`;
+  floater.style.top = `${scoreRect.top + scoreRect.height / 2}px`;
+  document.body.appendChild(floater);
 
-  if (questionSettings.team && currentQuestion.teamBonus) {
-    availableQuestions.push({ type: 'team', label: currentQuestion?.teamBonusLocalized ?? 'Team Bonus', text: currentQuestion.teamBonus });
-  }
+  const dx = (sheetRect.left + sheetRect.width / 2) - (scoreRect.left + scoreRect.width / 2);
+  const dy = (sheetRect.top + sheetRect.height / 2) - (scoreRect.top + scoreRect.height / 2);
+  floater.style.setProperty("--fly-dx", `${dx}px`);
+  floater.style.setProperty("--fly-dy", `${dy}px`);
+  floater.classList.add("flying");
 
-  if (availableQuestions.length === 0) {
-    return { label: '', text: "Guess the civilization" };
-  }
+  floater.addEventListener("animationend", () => {
+    floater.remove();
+    scoresheetEl.classList.add("scoresheet-bump");
+    scoresheetEl.addEventListener("animationend", () => {
+      scoresheetEl.classList.remove("scoresheet-bump");
+    }, { once: true });
+    onComplete();
+  }, { once: true });
+}
 
-  const randomQuestion = availableQuestions[Math.floor(Math.random() * availableQuestions.length)];
-  return { label: randomQuestion.label, text: randomQuestion.text };
+function addToScoresheet() {
+  scoresheetTotal += score;
+  localStorage.setItem('scoresheetTotal', scoresheetTotal.toString());
+  const scoresheetValueEl = document.querySelector("#scoresheet-value");
+  if (scoresheetValueEl) scoresheetValueEl.textContent = scoresheetTotal.toString();
+}
+
+function resetQuiz() {
+  questionQueue = generateQuestionSet();
+  questionIndex = 0;
+  score = 0;
+
+  const scoreValueEl = document.querySelector("#score-value");
+  const totalValueEl = document.querySelector("#total-value");
+  if (scoreValueEl) scoreValueEl.textContent = "0";
+  if (totalValueEl) totalValueEl.textContent = questionQueue.length.toString();
+  displayQuestion();
 }
 
 function displayQuestion() {
-  currentQuestion = generateQuestion();
+  // If we've gone through all questions, transfer score to scoresheet and start new set
+  if (questionIndex >= questionQueue.length) {
+    animateScoreToScoresheet(() => {
+      addToScoresheet();
+      score = 0;
+    
+      questionQueue = generateQuestionSet();
+      questionIndex = 0;
+      const scoreValueEl = document.querySelector("#score-value");
+      const totalValueEl = document.querySelector("#total-value");
+      if (scoreValueEl) scoreValueEl.textContent = "0";
+      if (totalValueEl) totalValueEl.textContent = questionQueue.length.toString();
+      displayQuestion();
+    });
+    return;
+  }
+
+  const question = questionQueue[questionIndex];
 
   const questionLabelEl = document.querySelector("#question-label");
   const questionEl = document.querySelector("#question");
@@ -351,15 +480,12 @@ function displayQuestion() {
   const submitButtonNoFun = document.querySelector("#submit-button-nofun") as HTMLButtonElement;
 
   if (questionLabelEl && questionEl && imageContainer && feedbackEl && answerInput && submitButton && nextButton) {
-    const question = getRandomQuestion();
-
     questionLabelEl.textContent = question.label;
     questionEl.textContent = question.text;
-    imageContainer.innerHTML = ""; // Clear any previous image
+    imageContainer.innerHTML = "";
     feedbackEl.innerHTML = "";
     answerInput.value = "";
     answerInput.disabled = false;
-    // Respect nofun mode when showing submit button
     if (questionSettings.nofun) {
       submitButton.style.display = "none";
       if (submitButtonNoFun) submitButtonNoFun.style.display = "flex";
@@ -373,38 +499,40 @@ function displayQuestion() {
 }
 
 function checkAnswer(userAnswer: string) {
-  if (!currentQuestion) return;
+  const question = questionQueue[questionIndex];
+  if (!question) return;
 
   const feedbackEl = document.querySelector("#feedback");
   const answerInput = document.querySelector("#answer-input") as HTMLInputElement;
   const submitButton = document.querySelector("#submit-button") as HTMLButtonElement;
   const nextButton = document.querySelector("#next-button") as HTMLButtonElement;
   const scoreValueEl = document.querySelector("#score-value");
-  const totalValueEl = document.querySelector("#total-value");
 
   const normalizedUser = normalizeAnswer(userAnswer);
-  const normalizedCorrect = normalizeAnswer(currentQuestion.civilization);
-
-  totalQuestions++;
+  const normalizedCorrect = normalizeAnswer(question.civilization);
 
   if (normalizedUser === normalizedCorrect) {
     score++;
     if (feedbackEl) {
-      feedbackEl.innerHTML = `<div style="color: green; font-weight: bold;">✓ Correct! It's ${currentQuestion.civilization}</div>`;
+      feedbackEl.innerHTML = `<div style="color: green; font-weight: bold;">✓ ${question.civilization}</div>`;
     }
-    // Trigger particle effect on score area
     const scoreEl = document.querySelector("#score");
     if (scoreEl) {
       createParticleEffect(scoreEl);
     }
+    if (!questionSettings.nofun) {
+      spawnConfetti(30);
+    }
   } else {
     if (feedbackEl) {
-      feedbackEl.innerHTML = `<div style="color: red; font-weight: bold;">✗ Wrong! The correct answer is ${currentQuestion.civilization}</div>`;
+      feedbackEl.innerHTML = `<div style="color: red; font-weight: bold;">✗ ${question.civilization}</div>`;
+    }
+    if (!questionSettings.nofun) {
+      triggerScreenShake();
     }
   }
 
   if (scoreValueEl) scoreValueEl.textContent = score.toString();
-  if (totalValueEl) totalValueEl.textContent = totalQuestions.toString();
 
   const submitButtonNoFun = document.querySelector("#submit-button-nofun") as HTMLButtonElement;
 
@@ -415,6 +543,8 @@ function checkAnswer(userAnswer: string) {
     nextButton.style.display = "block";
     nextButton.focus();
   }
+
+  questionIndex++;
 }
 
 const answerForm = document.querySelector("#answer-form");
@@ -444,8 +574,9 @@ function toggleTheme() {
   saveSettings(questionSettings);
 }
 
-// Apply saved theme on load
+// Apply saved theme and fun mode on load
 applyTheme(questionSettings.theme);
+applyFunMode(questionSettings.nofun);
 
 async function initApp() {
   try {
@@ -487,6 +618,7 @@ async function initApp() {
     const settingTechs = document.querySelector("#setting-techs") as HTMLInputElement;
     const settingTeam = document.querySelector("#setting-team") as HTMLInputElement;
     const settingNoFun = document.querySelector("#setting-nofun") as HTMLInputElement;
+    const settingQuestionCount = document.querySelector("#setting-question-count") as HTMLInputElement;
 
     // Load saved settings into checkboxes
     if (settingBonuses) settingBonuses.checked = questionSettings.bonuses;
@@ -494,6 +626,7 @@ async function initApp() {
     if (settingTechs) settingTechs.checked = questionSettings.techs;
     if (settingTeam) settingTeam.checked = questionSettings.team;
     if (settingNoFun) settingNoFun.checked = questionSettings.nofun;
+    if (settingQuestionCount) settingQuestionCount.value = questionSettings.questionCount.toString();
 
     // Update button visibility based on No Fun Mode
     const updateButtonVisibility = () => {
@@ -530,8 +663,9 @@ async function initApp() {
             if (checkbox === settingTeam) questionSettings.team = true;
           }
 
-          // Save settings to localStorage
+          // Save settings and regenerate question set
           saveSettings(questionSettings);
+          resetQuiz();
         });
       }
     });
@@ -541,12 +675,34 @@ async function initApp() {
       settingNoFun.addEventListener("change", () => {
         questionSettings.nofun = settingNoFun.checked;
         updateButtonVisibility();
+        applyFunMode(questionSettings.nofun);
         saveSettings(questionSettings);
+      });
+    }
+
+    // Handle question count change
+    if (settingQuestionCount) {
+      settingQuestionCount.addEventListener("change", () => {
+        const val = parseInt(settingQuestionCount.value, 10);
+        if (val >= 1) {
+          questionSettings.questionCount = val;
+          saveSettings(questionSettings);
+          resetQuiz();
+        }
       });
     }
 
     if (answerInput) {
       answerInput.addEventListener("input", handleAutocompleteInput);
+
+      // Fun mode typing effects: particles, screen shake, character size pop
+      answerInput.addEventListener("input", () => {
+        if (questionSettings.nofun || answerInput.disabled) return;
+        const pos = getCaretPixelPosition(answerInput);
+        spawnTypingParticles(pos.x, pos.y);
+        triggerTypingShake();
+        triggerInputPop(answerInput);
+      });
 
       // Handle backspace to delete selection AND last typed character
       answerInput.addEventListener("keydown", (e) => {
@@ -655,19 +811,19 @@ async function initApp() {
         await loadLocale(target.value);
         questionSettings.locale = target.value;
         saveSettings(questionSettings);
-        // Reset quiz when locale changes
-        score = 0;
-        totalQuestions = 0;
-        askedCivs.clear();
-        const scoreValueEl = document.querySelector("#score-value");
-        const totalValueEl = document.querySelector("#total-value");
-        if (scoreValueEl) scoreValueEl.textContent = "0";
-        if (totalValueEl) totalValueEl.textContent = "0";
-        displayQuestion();
+        resetQuiz();
       });
     }
 
-    // Display first question
+    // Restore scoresheet from localStorage
+    const scoresheetValueEl = document.querySelector("#scoresheet-value");
+    if (scoresheetValueEl) scoresheetValueEl.textContent = scoresheetTotal.toString();
+
+    // Generate question set and display first question
+    questionQueue = generateQuestionSet();
+    questionIndex = 0;
+    const totalValueEl = document.querySelector("#total-value");
+    if (totalValueEl) totalValueEl.textContent = questionQueue.length.toString();
     displayQuestion();
 
   } catch (error) {

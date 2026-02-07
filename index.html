@@ -11,7 +11,10 @@
   <body>
     <div id="header-bar">
       <h1>AoE2 Civilization Quiz</h1>
-      <button id="theme-toggle">🌙</button>
+      <div id="header-right">
+        <div id="scoresheet">📜 <span id="scoresheet-value">0</span></div>
+        <button id="theme-toggle">🌙</button>
+      </div>
     </div>
 
     <main class="container">
@@ -41,6 +44,10 @@
               No Fun Mode
             </label>
           </div>
+          <h3>Question Count</h3>
+          <div class="settings-group">
+            <input type="number" id="setting-question-count" min="1" max="500" value="10" />
+          </div>
           <button id="settings-close">Close</button>
         </div>
       </div>
@@ -69,7 +76,7 @@
         </form>
 
         <div id="feedback"></div>
-        <div id="score">Score: <span id="score-value">0</span> / <span id="total-value">0</span></div>
+        <div id="score"><span id="score-value">0</span> / <span id="total-value">0</span></div>
       </div>
 
       <div id="bottom-controls">
