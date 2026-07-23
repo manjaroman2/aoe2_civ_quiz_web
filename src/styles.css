@@ -809,7 +809,7 @@ body[data-funmode="true"]::before {
     rgba(255,0,0,0.07)
   );
   background-size: 400% 400%;
-  animation: fun-bg-shift 6s ease infinite;
+  animation: fun-bg-shift 20s ease infinite;
   z-index: -1;
   pointer-events: none;
 }
@@ -821,18 +821,30 @@ body[data-funmode="true"]::before {
 
 /* Rainbow glow border on quiz container */
 body[data-funmode="true"] #quiz-container {
-  animation: fun-border-rainbow 3s linear infinite, fun-wobble 4s ease-in-out infinite;
+  animation: fun-border-rainbow 25s linear infinite;
   border-width: 3px;
 }
 
 @keyframes fun-border-rainbow {
-  0%   { border-color: #ff0000; box-shadow: 0 0 20px #ff000044, inset 0 0 20px #ff000011; }
-  16%  { border-color: #ff8800; box-shadow: 0 0 20px #ff880044, inset 0 0 20px #ff880011; }
-  33%  { border-color: #ffff00; box-shadow: 0 0 20px #ffff0044, inset 0 0 20px #ffff0011; }
-  50%  { border-color: #00ff00; box-shadow: 0 0 20px #00ff0044, inset 0 0 20px #00ff0011; }
-  66%  { border-color: #0088ff; box-shadow: 0 0 20px #0088ff44, inset 0 0 20px #0088ff11; }
-  83%  { border-color: #8800ff; box-shadow: 0 0 20px #8800ff44, inset 0 0 20px #8800ff11; }
-  100% { border-color: #ff0000; box-shadow: 0 0 20px #ff000044, inset 0 0 20px #ff000011; }
+  0%   { border-color: #ff0000; box-shadow: 0 0 12px #ff000033, inset 0 0 12px #ff000011; }
+  3%   { border-color: #ff0000; box-shadow: 0 0 25px #ff000055, inset 0 0 25px #ff000022; }
+  8%   { border-color: #ff0000; box-shadow: 0 0 12px #ff000033, inset 0 0 12px #ff000011; }
+  16%  { border-color: #ff8800; box-shadow: 0 0 12px #ff880033, inset 0 0 12px #ff880011; }
+  19%  { border-color: #ff8800; box-shadow: 0 0 25px #ff880055, inset 0 0 25px #ff880022; }
+  24%  { border-color: #ff8800; box-shadow: 0 0 12px #ff880033, inset 0 0 12px #ff880011; }
+  33%  { border-color: #ffff00; box-shadow: 0 0 12px #ffff0033, inset 0 0 12px #ffff0011; }
+  36%  { border-color: #ffff00; box-shadow: 0 0 25px #ffff0055, inset 0 0 25px #ffff0022; }
+  41%  { border-color: #ffff00; box-shadow: 0 0 12px #ffff0033, inset 0 0 12px #ffff0011; }
+  50%  { border-color: #00ff00; box-shadow: 0 0 12px #00ff0033, inset 0 0 12px #00ff0011; }
+  53%  { border-color: #00ff00; box-shadow: 0 0 25px #00ff0055, inset 0 0 25px #00ff0022; }
+  58%  { border-color: #00ff00; box-shadow: 0 0 12px #00ff0033, inset 0 0 12px #00ff0011; }
+  66%  { border-color: #0088ff; box-shadow: 0 0 12px #0088ff33, inset 0 0 12px #0088ff11; }
+  69%  { border-color: #0088ff; box-shadow: 0 0 25px #0088ff55, inset 0 0 25px #0088ff22; }
+  74%  { border-color: #0088ff; box-shadow: 0 0 12px #0088ff33, inset 0 0 12px #0088ff11; }
+  83%  { border-color: #8800ff; box-shadow: 0 0 12px #8800ff33, inset 0 0 12px #8800ff11; }
+  86%  { border-color: #8800ff; box-shadow: 0 0 25px #8800ff55, inset 0 0 25px #8800ff22; }
+  91%  { border-color: #8800ff; box-shadow: 0 0 12px #8800ff33, inset 0 0 12px #8800ff11; }
+  100% { border-color: #ff0000; box-shadow: 0 0 12px #ff000033, inset 0 0 12px #ff000011; }
 }
 
 @keyframes fun-wobble {
@@ -848,7 +860,7 @@ body[data-funmode="true"] #question {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  animation: fun-rainbow-text 3s linear infinite;
+  animation: fun-rainbow-text 12s linear infinite;
 }
 
 @keyframes fun-rainbow-text {
@@ -880,7 +892,7 @@ body[data-funmode="true"] #question-label {
 /* Glowing cycling input border */
 body[data-funmode="true"] #answer-input {
   border: 2px solid #ff0088;
-  animation: fun-input-glow 2s ease-in-out infinite alternate;
+  animation: fun-input-glow 6s ease-in-out infinite alternate;
 }
 
 @keyframes fun-input-glow {
@@ -892,7 +904,7 @@ body[data-funmode="true"] #answer-input {
 
 /* Pulsing glowing score */
 body[data-funmode="true"] #score {
-  animation: fun-score-pulse 1.5s ease-in-out infinite;
+  animation: fun-score-pulse 4s ease-in-out infinite;
 }
 
 @keyframes fun-score-pulse {
@@ -909,6 +921,21 @@ body[data-funmode="true"] #submit-button {
   0%, 100% { transform: rotate(0deg) scale(1); }
   25% { transform: rotate(5deg) scale(1.05); }
   75% { transform: rotate(-5deg) scale(1.05); }
+}
+
+/* Skeleton button celebration on correct answer */
+#submit-button.fun-correct-celebrate {
+  animation: fun-correct-grow 2s ease-in-out forwards !important;
+  z-index: 200;
+  pointer-events: none;
+}
+
+@keyframes fun-correct-grow {
+  0% { transform: scale(1.5) rotate(5deg); }
+  25% { transform: scale(3) rotate(10deg); }
+  50% { transform: scale(3.5) rotate(-5deg); }
+  80% { transform: scale(3) rotate(5deg); }
+  100% { transform: scale(1) rotate(0deg); }
 }
 
 /* Settings gear spinning */

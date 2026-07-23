@@ -486,6 +486,7 @@ function displayQuestion() {
     feedbackEl.innerHTML = "";
     answerInput.value = "";
     answerInput.disabled = false;
+    submitButton.classList.remove("fun-correct-celebrate", "playing");
     if (questionSettings.nofun) {
       submitButton.style.display = "none";
       if (submitButtonNoFun) submitButtonNoFun.style.display = "flex";
@@ -536,9 +537,28 @@ function checkAnswer(userAnswer: string) {
 
   const submitButtonNoFun = document.querySelector("#submit-button-nofun") as HTMLButtonElement;
 
+  const isCorrect = normalizedUser === normalizedCorrect;
+
   if (answerInput) answerInput.disabled = true;
-  if (submitButton) submitButton.style.display = "none";
   if (submitButtonNoFun) submitButtonNoFun.style.display = "none";
+
+  // In fun mode on correct answer: grow skeleton button and play animation
+  if (isCorrect && !questionSettings.nofun && submitButton) {
+    const animatedImg = submitButton.querySelector(".animated-img") as HTMLImageElement;
+    if (animatedImg) {
+      animatedImg.src = "/gifs/stan-twt-skeleton-banging-shield.gif?t=" + new Date().getTime();
+    }
+    submitButton.classList.add("playing");
+    submitButton.classList.add("fun-correct-celebrate");
+    submitButton.addEventListener("animationend", () => {
+      submitButton.classList.remove("fun-correct-celebrate");
+      submitButton.classList.remove("playing");
+      submitButton.style.display = "none";
+    }, { once: true });
+  } else {
+    if (submitButton) submitButton.style.display = "none";
+  }
+
   if (nextButton) {
     nextButton.style.display = "block";
     nextButton.focus();
@@ -787,8 +807,8 @@ async function initApp() {
                               (submitButtonNoFun && submitButtonNoFun.style.display !== "none");
 
         if (submitVisible) {
-          // Submit answer
-          if (answerInput && answerInput.value.trim()) {
+          // Submit answer (guard against double-submit when input is disabled)
+          if (answerInput && answerInput.value.trim() && !answerInput.disabled) {
             checkAnswer(answerInput.value);
           }
         } else if (nextButton && nextButton.style.display !== "none") {
