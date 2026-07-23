@@ -20,129 +20,9 @@ let localeStrings: LocaleStrings = {};
 let questionQueue: QueuedQuestion[] = [];
 let questionIndex = 0;
 let score = 0;
+let wrongQuestions: QueuedQuestion[] = [];
 let allCivNames: string[] = [];
 let scoresheetTotal = parseInt(localStorage.getItem('scoresheetTotal') || '0', 10);
-
-function applyFunMode(nofun: boolean) {
-  if (!nofun) {
-    document.body.setAttribute('data-funmode', 'true');
-  } else {
-    document.body.removeAttribute('data-funmode');
-  }
-}
-
-function spawnConfetti(count: number) {
-  const colors = ['#ff0000', '#ff8800', '#ffff00', '#00ff00', '#0088ff', '#8800ff', '#ff00ff', '#00ffff'];
-  for (let i = 0; i < count; i++) {
-    const confetti = document.createElement('div');
-    confetti.className = 'fun-confetti';
-    confetti.style.left = `${Math.random() * 100}vw`;
-    confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-    confetti.style.width = `${6 + Math.random() * 10}px`;
-    confetti.style.height = `${6 + Math.random() * 10}px`;
-    confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
-    confetti.style.animationDuration = `${1 + Math.random() * 2}s`;
-    confetti.style.animationDelay = `${Math.random() * 0.5}s`;
-    document.body.appendChild(confetti);
-    setTimeout(() => confetti.remove(), 3500);
-  }
-}
-
-function triggerScreenShake() {
-  document.body.classList.add('fun-shake');
-  setTimeout(() => document.body.classList.remove('fun-shake'), 600);
-}
-
-function getCaretPixelPosition(input: HTMLInputElement): { x: number; y: number } {
-  const rect = input.getBoundingClientRect();
-  const style = getComputedStyle(input);
-  const span = document.createElement('span');
-  span.style.font = style.font;
-  span.style.fontSize = style.fontSize;
-  span.style.fontFamily = style.fontFamily;
-  span.style.letterSpacing = style.letterSpacing;
-  span.style.position = 'absolute';
-  span.style.visibility = 'hidden';
-  span.style.whiteSpace = 'pre';
-  span.textContent = input.value.substring(0, input.selectionStart || input.value.length);
-  document.body.appendChild(span);
-  const textWidth = span.getBoundingClientRect().width;
-  span.remove();
-
-  const paddingLeft = parseFloat(style.paddingLeft);
-  const x = Math.min(rect.left + paddingLeft + textWidth, rect.right - 10);
-  return { x, y: rect.top + rect.height / 2 };
-}
-
-function spawnTypingParticles(x: number, y: number) {
-  const colors = ['#ff0088', '#00ff88', '#0088ff', '#ff8800', '#ff00ff', '#00ffff', '#ffff00', '#ff4444', '#8800ff', '#00ff00'];
-  const count = 5 + Math.floor(Math.random() * 4);
-
-  for (let i = 0; i < count; i++) {
-    const particle = document.createElement('div');
-    particle.className = 'typing-particle';
-    const angle = Math.random() * Math.PI * 2;
-    const distance = 20 + Math.random() * 35;
-    const tx = Math.cos(angle) * distance;
-    const ty = Math.sin(angle) * distance;
-
-    particle.style.setProperty('--tx', `${tx}px`);
-    particle.style.setProperty('--ty', `${ty}px`);
-    particle.style.left = `${x}px`;
-    particle.style.top = `${y}px`;
-    particle.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-    particle.style.boxShadow = `0 0 4px ${particle.style.backgroundColor}`;
-
-    document.body.appendChild(particle);
-    setTimeout(() => particle.remove(), 600);
-  }
-}
-
-function triggerTypingShake() {
-  document.body.classList.remove('fun-typing-shake');
-  void document.body.offsetWidth;
-  document.body.classList.add('fun-typing-shake');
-  setTimeout(() => document.body.classList.remove('fun-typing-shake'), 100);
-}
-
-function triggerInputPop(input: HTMLInputElement) {
-  input.classList.remove('fun-typing-pop');
-  void input.offsetWidth;
-  input.classList.add('fun-typing-pop');
-  setTimeout(() => input.classList.remove('fun-typing-pop'), 200);
-}
-
-function createParticleEffect(element: Element) {
-  const rect = element.getBoundingClientRect();
-  const centerX = rect.width / 2;
-  const centerY = rect.height / 2;
-
-  const particleCount = 12;
-  const colors = ['#22c55e', '#4ade80', '#86efac', '#16a34a', '#15803d'];
-
-  for (let i = 0; i < particleCount; i++) {
-    const particle = document.createElement('div');
-    particle.className = 'particle';
-
-    // Random angle for burst direction
-    const angle = (Math.PI * 2 * i) / particleCount + (Math.random() - 0.5) * 0.5;
-    const distance = 40 + Math.random() * 30;
-    const tx = Math.cos(angle) * distance;
-    const ty = Math.sin(angle) * distance;
-
-    particle.style.setProperty('--tx', `${tx}px`);
-    particle.style.setProperty('--ty', `${ty}px`);
-    particle.style.left = `${centerX}px`;
-    particle.style.top = `${centerY}px`;
-    particle.style.background = colors[Math.floor(Math.random() * colors.length)];
-    particle.style.boxShadow = `0 0 6px ${particle.style.background}`;
-
-    element.appendChild(particle);
-
-    // Remove particle after animation
-    setTimeout(() => particle.remove(), 800);
-  }
-}
 
 interface QuestionSettings {
   bonuses: boolean;
@@ -151,9 +31,551 @@ interface QuestionSettings {
   team: boolean;
   locale: string;
   theme: 'light' | 'dark';
-  nofun: boolean;
   questionCount: number;
 }
+
+interface QuestionTypeCounts {
+  bonuses: number;
+  units: number;
+  techs: number;
+  team: number;
+}
+
+const LANGUAGE_OPTIONS = [
+  { locale: "en", label: "English" },
+  { locale: "de", label: "Deutsch" },
+  { locale: "es", label: "Español" },
+  { locale: "fr", label: "Français" },
+  { locale: "it", label: "Italiano" },
+  { locale: "ru", label: "Русский" },
+  { locale: "zh", label: "中文" },
+  { locale: "tw", label: "繁體中文" },
+  { locale: "jp", label: "日本語" },
+  { locale: "ko", label: "한국어" },
+  { locale: "br", label: "Português (BR)" },
+  { locale: "mx", label: "Español (MX)" },
+  { locale: "pl", label: "Polski" },
+  { locale: "tr", label: "Türkçe" },
+  { locale: "vi", label: "Tiếng Việt" },
+  { locale: "hi", label: "हिन्दी" },
+  { locale: "ms", label: "Bahasa Melayu" },
+] as const;
+
+const UI_STRINGS: Record<string, Record<string, string>> = {
+  en: {
+    pageTitle: "AoE2 Civilization Quiz",
+    setupTitle: "Create Quiz",
+    setupDescription: "Choose the question types you want, then start a new run with your current preferences.",
+    languageHeading: "Language",
+    questionLanguageLabel: "Question language",
+    questionTypesHeading: "Question Types",
+    questionTypeBonuses: "Civilization Bonuses",
+    questionTypeUnits: "Unique Units",
+    questionTypeTechs: "Unique Technologies",
+    questionTypeTeam: "Team Bonus",
+    questionCountHeading: "Question Count",
+    startQuizButton: "Start Quiz",
+    settingsTitle: "Settings",
+    lightMode: "Light mode",
+    closeButton: "Close",
+    resultsTitle: "Quiz Overview",
+    resultsTotal: "Total",
+    resultsCorrect: "Correct",
+    resultsWrong: "Wrong",
+    resultsAccuracy: "Accuracy",
+    rerunWrongOnly: "Rerun Wrong Only",
+    createNewQuiz: "Create New Quiz",
+    noWrongAnswers: "No Wrong Answers",
+    fallbackCivBonus: "Civ Bonus",
+    fallbackUniqueUnit: "Unique Unit",
+    fallbackUniqueTech: "Unique Tech",
+    fallbackTeamBonus: "Team Bonus",
+    errorLoadingQuiz: "Error loading quiz data. Please refresh the page.",
+  },
+  de: {
+    pageTitle: "AoE2-Zivilisationsquiz",
+    setupTitle: "Quiz erstellen",
+    setupDescription: "Wähle die gewünschten Fragetypen aus und starte eine neue Runde mit deinen aktuellen Einstellungen.",
+    languageHeading: "Sprache",
+    questionLanguageLabel: "Fragesprache",
+    questionTypesHeading: "Fragetypen",
+    questionTypeBonuses: "Zivilisationsboni",
+    questionTypeUnits: "Einzigartige Einheiten",
+    questionTypeTechs: "Einzigartige Technologien",
+    questionTypeTeam: "Teambonus",
+    questionCountHeading: "Fragenanzahl",
+    startQuizButton: "Quiz starten",
+    settingsTitle: "Einstellungen",
+    lightMode: "Hellmodus",
+    closeButton: "Schließen",
+    resultsTitle: "Quiz-Übersicht",
+    resultsTotal: "Gesamt",
+    resultsCorrect: "Richtig",
+    resultsWrong: "Falsch",
+    resultsAccuracy: "Trefferquote",
+    rerunWrongOnly: "Nur falsche Fragen erneut",
+    createNewQuiz: "Neues Quiz erstellen",
+    noWrongAnswers: "Keine falschen Antworten",
+    fallbackCivBonus: "Zivilisationsbonus",
+    fallbackUniqueUnit: "Einzigartige Einheit",
+    fallbackUniqueTech: "Einzigartige Technologie",
+    fallbackTeamBonus: "Teambonus",
+    errorLoadingQuiz: "Fehler beim Laden der Quizdaten. Bitte lade die Seite neu.",
+  },
+  es: {
+    pageTitle: "Quiz de civilizaciones AoE2",
+    setupTitle: "Crear quiz",
+    setupDescription: "Elige los tipos de pregunta que quieras y comienza una nueva partida con tus preferencias actuales.",
+    languageHeading: "Idioma",
+    questionLanguageLabel: "Idioma de las preguntas",
+    questionTypesHeading: "Tipos de pregunta",
+    questionTypeBonuses: "Bonificaciones de civilización",
+    questionTypeUnits: "Unidades únicas",
+    questionTypeTechs: "Tecnologías únicas",
+    questionTypeTeam: "Bonificación de equipo",
+    questionCountHeading: "Cantidad de preguntas",
+    startQuizButton: "Empezar quiz",
+    settingsTitle: "Configuración",
+    lightMode: "Modo claro",
+    closeButton: "Cerrar",
+    resultsTitle: "Resumen del quiz",
+    resultsTotal: "Total",
+    resultsCorrect: "Correctas",
+    resultsWrong: "Incorrectas",
+    resultsAccuracy: "Precisión",
+    rerunWrongOnly: "Repetir solo falladas",
+    createNewQuiz: "Crear nuevo quiz",
+    noWrongAnswers: "Sin respuestas incorrectas",
+    fallbackCivBonus: "Bonificación de civilización",
+    fallbackUniqueUnit: "Unidad única",
+    fallbackUniqueTech: "Tecnología única",
+    fallbackTeamBonus: "Bonificación de equipo",
+    errorLoadingQuiz: "Error al cargar los datos del quiz. Actualiza la página.",
+  },
+  fr: {
+    pageTitle: "Quiz des civilisations AoE2",
+    setupTitle: "Créer un quiz",
+    setupDescription: "Choisissez les types de questions souhaités, puis lancez une nouvelle partie avec vos préférences actuelles.",
+    languageHeading: "Langue",
+    questionLanguageLabel: "Langue des questions",
+    questionTypesHeading: "Types de questions",
+    questionTypeBonuses: "Bonus de civilisation",
+    questionTypeUnits: "Unités uniques",
+    questionTypeTechs: "Technologies uniques",
+    questionTypeTeam: "Bonus d'équipe",
+    questionCountHeading: "Nombre de questions",
+    startQuizButton: "Démarrer le quiz",
+    settingsTitle: "Paramètres",
+    lightMode: "Mode clair",
+    closeButton: "Fermer",
+    resultsTitle: "Aperçu du quiz",
+    resultsTotal: "Total",
+    resultsCorrect: "Correctes",
+    resultsWrong: "Fausses",
+    resultsAccuracy: "Précision",
+    rerunWrongOnly: "Rejouer seulement les erreurs",
+    createNewQuiz: "Créer un nouveau quiz",
+    noWrongAnswers: "Aucune mauvaise réponse",
+    fallbackCivBonus: "Bonus de civilisation",
+    fallbackUniqueUnit: "Unité unique",
+    fallbackUniqueTech: "Technologie unique",
+    fallbackTeamBonus: "Bonus d'équipe",
+    errorLoadingQuiz: "Erreur lors du chargement des données du quiz. Veuillez actualiser la page.",
+  },
+  it: {
+    pageTitle: "Quiz delle civiltà AoE2",
+    setupTitle: "Crea quiz",
+    setupDescription: "Scegli i tipi di domanda che desideri e avvia una nuova partita con le tue preferenze attuali.",
+    languageHeading: "Lingua",
+    questionLanguageLabel: "Lingua delle domande",
+    questionTypesHeading: "Tipi di domanda",
+    questionTypeBonuses: "Bonus civiltà",
+    questionTypeUnits: "Unità uniche",
+    questionTypeTechs: "Tecnologie uniche",
+    questionTypeTeam: "Bonus di squadra",
+    questionCountHeading: "Numero di domande",
+    startQuizButton: "Avvia quiz",
+    settingsTitle: "Impostazioni",
+    lightMode: "Modalità chiara",
+    closeButton: "Chiudi",
+    resultsTitle: "Panoramica quiz",
+    resultsTotal: "Totale",
+    resultsCorrect: "Corrette",
+    resultsWrong: "Sbagliate",
+    resultsAccuracy: "Precisione",
+    rerunWrongOnly: "Ripeti solo quelle sbagliate",
+    createNewQuiz: "Crea un nuovo quiz",
+    noWrongAnswers: "Nessuna risposta sbagliata",
+    fallbackCivBonus: "Bonus civiltà",
+    fallbackUniqueUnit: "Unità unica",
+    fallbackUniqueTech: "Tecnologia unica",
+    fallbackTeamBonus: "Bonus di squadra",
+    errorLoadingQuiz: "Errore nel caricamento dei dati del quiz. Aggiorna la pagina.",
+  },
+  ru: {
+    pageTitle: "Викторина по цивилизациям AoE2",
+    setupTitle: "Создать викторину",
+    setupDescription: "Выберите нужные типы вопросов и начните новый раунд с текущими настройками.",
+    languageHeading: "Язык",
+    questionLanguageLabel: "Язык вопросов",
+    questionTypesHeading: "Типы вопросов",
+    questionTypeBonuses: "Бонусы цивилизаций",
+    questionTypeUnits: "Уникальные юниты",
+    questionTypeTechs: "Уникальные технологии",
+    questionTypeTeam: "Командный бонус",
+    questionCountHeading: "Количество вопросов",
+    startQuizButton: "Начать викторину",
+    settingsTitle: "Настройки",
+    lightMode: "Светлая тема",
+    closeButton: "Закрыть",
+    resultsTitle: "Итоги викторины",
+    resultsTotal: "Всего",
+    resultsCorrect: "Верно",
+    resultsWrong: "Неверно",
+    resultsAccuracy: "Точность",
+    rerunWrongOnly: "Повторить только неверные",
+    createNewQuiz: "Создать новую викторину",
+    noWrongAnswers: "Нет неверных ответов",
+    fallbackCivBonus: "Бонус цивилизации",
+    fallbackUniqueUnit: "Уникальный юнит",
+    fallbackUniqueTech: "Уникальная технология",
+    fallbackTeamBonus: "Командный бонус",
+    errorLoadingQuiz: "Ошибка загрузки данных викторины. Обновите страницу.",
+  },
+  zh: {
+    pageTitle: "AoE2 文明测验",
+    setupTitle: "创建测验",
+    setupDescription: "选择你想要的题目类型，然后使用当前偏好开始新一局。",
+    languageHeading: "语言",
+    questionLanguageLabel: "题目语言",
+    questionTypesHeading: "题目类型",
+    questionTypeBonuses: "文明加成",
+    questionTypeUnits: "特色单位",
+    questionTypeTechs: "特色科技",
+    questionTypeTeam: "团队加成",
+    questionCountHeading: "题目数量",
+    startQuizButton: "开始测验",
+    settingsTitle: "设置",
+    lightMode: "浅色模式",
+    closeButton: "关闭",
+    resultsTitle: "测验概览",
+    resultsTotal: "总计",
+    resultsCorrect: "正确",
+    resultsWrong: "错误",
+    resultsAccuracy: "准确率",
+    rerunWrongOnly: "仅重做错误题",
+    createNewQuiz: "创建新测验",
+    noWrongAnswers: "没有错误答案",
+    fallbackCivBonus: "文明加成",
+    fallbackUniqueUnit: "特色单位",
+    fallbackUniqueTech: "特色科技",
+    fallbackTeamBonus: "团队加成",
+    errorLoadingQuiz: "加载测验数据时出错。请刷新页面。",
+  },
+  tw: {
+    pageTitle: "AoE2 文明測驗",
+    setupTitle: "建立測驗",
+    setupDescription: "選擇你想要的題目類型，然後使用目前偏好開始新一輪。",
+    languageHeading: "語言",
+    questionLanguageLabel: "題目語言",
+    questionTypesHeading: "題目類型",
+    questionTypeBonuses: "文明加成",
+    questionTypeUnits: "特殊單位",
+    questionTypeTechs: "特殊科技",
+    questionTypeTeam: "團隊加成",
+    questionCountHeading: "題目數量",
+    startQuizButton: "開始測驗",
+    settingsTitle: "設定",
+    lightMode: "淺色模式",
+    closeButton: "關閉",
+    resultsTitle: "測驗總覽",
+    resultsTotal: "總計",
+    resultsCorrect: "正確",
+    resultsWrong: "錯誤",
+    resultsAccuracy: "準確率",
+    rerunWrongOnly: "只重做錯題",
+    createNewQuiz: "建立新測驗",
+    noWrongAnswers: "沒有錯誤答案",
+    fallbackCivBonus: "文明加成",
+    fallbackUniqueUnit: "特殊單位",
+    fallbackUniqueTech: "特殊科技",
+    fallbackTeamBonus: "團隊加成",
+    errorLoadingQuiz: "載入測驗資料時發生錯誤。請重新整理頁面。",
+  },
+  jp: {
+    pageTitle: "AoE2 文明クイズ",
+    setupTitle: "クイズを作成",
+    setupDescription: "出題タイプを選んで、現在の設定で新しいクイズを開始しましょう。",
+    languageHeading: "言語",
+    questionLanguageLabel: "問題の言語",
+    questionTypesHeading: "出題タイプ",
+    questionTypeBonuses: "文明ボーナス",
+    questionTypeUnits: "固有ユニット",
+    questionTypeTechs: "固有テクノロジー",
+    questionTypeTeam: "チームボーナス",
+    questionCountHeading: "問題数",
+    startQuizButton: "クイズ開始",
+    settingsTitle: "設定",
+    lightMode: "ライトモード",
+    closeButton: "閉じる",
+    resultsTitle: "クイズ概要",
+    resultsTotal: "合計",
+    resultsCorrect: "正解",
+    resultsWrong: "不正解",
+    resultsAccuracy: "正答率",
+    rerunWrongOnly: "間違いのみ再挑戦",
+    createNewQuiz: "新しいクイズを作成",
+    noWrongAnswers: "不正解はありません",
+    fallbackCivBonus: "文明ボーナス",
+    fallbackUniqueUnit: "固有ユニット",
+    fallbackUniqueTech: "固有テクノロジー",
+    fallbackTeamBonus: "チームボーナス",
+    errorLoadingQuiz: "クイズデータの読み込みでエラーが発生しました。ページを再読み込みしてください。",
+  },
+  ko: {
+    pageTitle: "AoE2 문명 퀴즈",
+    setupTitle: "퀴즈 만들기",
+    setupDescription: "원하는 문제 유형을 선택하고 현재 설정으로 새 퀴즈를 시작하세요.",
+    languageHeading: "언어",
+    questionLanguageLabel: "문제 언어",
+    questionTypesHeading: "문제 유형",
+    questionTypeBonuses: "문명 보너스",
+    questionTypeUnits: "고유 유닛",
+    questionTypeTechs: "고유 기술",
+    questionTypeTeam: "팀 보너스",
+    questionCountHeading: "문제 수",
+    startQuizButton: "퀴즈 시작",
+    settingsTitle: "설정",
+    lightMode: "라이트 모드",
+    closeButton: "닫기",
+    resultsTitle: "퀴즈 개요",
+    resultsTotal: "전체",
+    resultsCorrect: "정답",
+    resultsWrong: "오답",
+    resultsAccuracy: "정확도",
+    rerunWrongOnly: "오답만 다시 풀기",
+    createNewQuiz: "새 퀴즈 만들기",
+    noWrongAnswers: "틀린 답이 없습니다",
+    fallbackCivBonus: "문명 보너스",
+    fallbackUniqueUnit: "고유 유닛",
+    fallbackUniqueTech: "고유 기술",
+    fallbackTeamBonus: "팀 보너스",
+    errorLoadingQuiz: "퀴즈 데이터를 불러오는 중 오류가 발생했습니다. 페이지를 새로고침하세요.",
+  },
+  br: {
+    pageTitle: "Quiz de Civilizações de AoE2",
+    setupTitle: "Criar quiz",
+    setupDescription: "Escolha os tipos de pergunta desejados e inicie uma nova rodada com suas preferências atuais.",
+    languageHeading: "Idioma",
+    questionLanguageLabel: "Idioma das perguntas",
+    questionTypesHeading: "Tipos de pergunta",
+    questionTypeBonuses: "Bônus de civilização",
+    questionTypeUnits: "Unidades únicas",
+    questionTypeTechs: "Tecnologias únicas",
+    questionTypeTeam: "Bônus de equipe",
+    questionCountHeading: "Quantidade de perguntas",
+    startQuizButton: "Iniciar quiz",
+    settingsTitle: "Configurações",
+    lightMode: "Modo claro",
+    closeButton: "Fechar",
+    resultsTitle: "Visão geral do quiz",
+    resultsTotal: "Total",
+    resultsCorrect: "Corretas",
+    resultsWrong: "Incorretas",
+    resultsAccuracy: "Precisão",
+    rerunWrongOnly: "Repetir apenas as erradas",
+    createNewQuiz: "Criar novo quiz",
+    noWrongAnswers: "Nenhuma resposta errada",
+    fallbackCivBonus: "Bônus de civilização",
+    fallbackUniqueUnit: "Unidade única",
+    fallbackUniqueTech: "Tecnologia única",
+    fallbackTeamBonus: "Bônus de equipe",
+    errorLoadingQuiz: "Erro ao carregar os dados do quiz. Atualize a página.",
+  },
+  mx: {
+    pageTitle: "Quiz de civilizaciones AoE2",
+    setupTitle: "Crear quiz",
+    setupDescription: "Elige los tipos de pregunta que quieras y comienza una nueva ronda con tus preferencias actuales.",
+    languageHeading: "Idioma",
+    questionLanguageLabel: "Idioma de las preguntas",
+    questionTypesHeading: "Tipos de pregunta",
+    questionTypeBonuses: "Bonificaciones de civilización",
+    questionTypeUnits: "Unidades únicas",
+    questionTypeTechs: "Tecnologías únicas",
+    questionTypeTeam: "Bonificación de equipo",
+    questionCountHeading: "Cantidad de preguntas",
+    startQuizButton: "Iniciar quiz",
+    settingsTitle: "Configuración",
+    lightMode: "Modo claro",
+    closeButton: "Cerrar",
+    resultsTitle: "Resumen del quiz",
+    resultsTotal: "Total",
+    resultsCorrect: "Correctas",
+    resultsWrong: "Incorrectas",
+    resultsAccuracy: "Precisión",
+    rerunWrongOnly: "Repetir solo incorrectas",
+    createNewQuiz: "Crear nuevo quiz",
+    noWrongAnswers: "Sin respuestas incorrectas",
+    fallbackCivBonus: "Bonificación de civilización",
+    fallbackUniqueUnit: "Unidad única",
+    fallbackUniqueTech: "Tecnología única",
+    fallbackTeamBonus: "Bonificación de equipo",
+    errorLoadingQuiz: "Error al cargar los datos del quiz. Actualiza la página.",
+  },
+  pl: {
+    pageTitle: "Quiz cywilizacji AoE2",
+    setupTitle: "Utwórz quiz",
+    setupDescription: "Wybierz typy pytań, które chcesz, a następnie rozpocznij nową rundę z bieżącymi ustawieniami.",
+    languageHeading: "Język",
+    questionLanguageLabel: "Język pytań",
+    questionTypesHeading: "Typy pytań",
+    questionTypeBonuses: "Premie cywilizacji",
+    questionTypeUnits: "Unikalne jednostki",
+    questionTypeTechs: "Unikalne technologie",
+    questionTypeTeam: "Premia drużynowa",
+    questionCountHeading: "Liczba pytań",
+    startQuizButton: "Rozpocznij quiz",
+    settingsTitle: "Ustawienia",
+    lightMode: "Jasny motyw",
+    closeButton: "Zamknij",
+    resultsTitle: "Podsumowanie quizu",
+    resultsTotal: "Razem",
+    resultsCorrect: "Poprawne",
+    resultsWrong: "Błędne",
+    resultsAccuracy: "Dokładność",
+    rerunWrongOnly: "Powtórz tylko błędne",
+    createNewQuiz: "Utwórz nowy quiz",
+    noWrongAnswers: "Brak błędnych odpowiedzi",
+    fallbackCivBonus: "Premia cywilizacji",
+    fallbackUniqueUnit: "Unikalna jednostka",
+    fallbackUniqueTech: "Unikalna technologia",
+    fallbackTeamBonus: "Premia drużynowa",
+    errorLoadingQuiz: "Błąd podczas wczytywania danych quizu. Odśwież stronę.",
+  },
+  tr: {
+    pageTitle: "AoE2 Medeniyet Bilgi Yarışması",
+    setupTitle: "Bilgi yarışması oluştur",
+    setupDescription: "İstediğiniz soru türlerini seçin ve mevcut tercihlerinizle yeni bir tur başlatın.",
+    languageHeading: "Dil",
+    questionLanguageLabel: "Soru dili",
+    questionTypesHeading: "Soru türleri",
+    questionTypeBonuses: "Medeniyet bonusları",
+    questionTypeUnits: "Özel birimler",
+    questionTypeTechs: "Özel teknolojiler",
+    questionTypeTeam: "Takım bonusu",
+    questionCountHeading: "Soru sayısı",
+    startQuizButton: "Yarışmayı başlat",
+    settingsTitle: "Ayarlar",
+    lightMode: "Aydınlık mod",
+    closeButton: "Kapat",
+    resultsTitle: "Yarışma özeti",
+    resultsTotal: "Toplam",
+    resultsCorrect: "Doğru",
+    resultsWrong: "Yanlış",
+    resultsAccuracy: "Başarı oranı",
+    rerunWrongOnly: "Sadece yanlışları tekrar çöz",
+    createNewQuiz: "Yeni yarışma oluştur",
+    noWrongAnswers: "Yanlış cevap yok",
+    fallbackCivBonus: "Medeniyet bonusu",
+    fallbackUniqueUnit: "Özel birim",
+    fallbackUniqueTech: "Özel teknoloji",
+    fallbackTeamBonus: "Takım bonusu",
+    errorLoadingQuiz: "Yarışma verileri yüklenirken hata oluştu. Lütfen sayfayı yenileyin.",
+  },
+  vi: {
+    pageTitle: "Đố vui nền văn minh AoE2",
+    setupTitle: "Tạo câu đố",
+    setupDescription: "Chọn kiểu câu hỏi bạn muốn, rồi bắt đầu một lượt mới với các thiết lập hiện tại.",
+    languageHeading: "Ngôn ngữ",
+    questionLanguageLabel: "Ngôn ngữ câu hỏi",
+    questionTypesHeading: "Kiểu câu hỏi",
+    questionTypeBonuses: "Thưởng nền văn minh",
+    questionTypeUnits: "Đơn vị đặc biệt",
+    questionTypeTechs: "Công nghệ đặc biệt",
+    questionTypeTeam: "Thưởng đồng đội",
+    questionCountHeading: "Số câu hỏi",
+    startQuizButton: "Bắt đầu",
+    settingsTitle: "Cài đặt",
+    lightMode: "Chế độ sáng",
+    closeButton: "Đóng",
+    resultsTitle: "Tổng kết câu đố",
+    resultsTotal: "Tổng",
+    resultsCorrect: "Đúng",
+    resultsWrong: "Sai",
+    resultsAccuracy: "Độ chính xác",
+    rerunWrongOnly: "Làm lại chỉ câu sai",
+    createNewQuiz: "Tạo câu đố mới",
+    noWrongAnswers: "Không có câu sai",
+    fallbackCivBonus: "Thưởng nền văn minh",
+    fallbackUniqueUnit: "Đơn vị đặc biệt",
+    fallbackUniqueTech: "Công nghệ đặc biệt",
+    fallbackTeamBonus: "Thưởng đồng đội",
+    errorLoadingQuiz: "Lỗi khi tải dữ liệu câu đố. Vui lòng làm mới trang.",
+  },
+  hi: {
+    pageTitle: "AoE2 सभ्यता प्रश्नोत्तरी",
+    setupTitle: "प्रश्नोत्तरी बनाएं",
+    setupDescription: "जिन प्रश्न प्रकारों को आप चाहते हैं, उन्हें चुनें और अपनी वर्तमान प्राथमिकताओं के साथ एक नया राउंड शुरू करें।",
+    languageHeading: "भाषा",
+    questionLanguageLabel: "प्रश्न भाषा",
+    questionTypesHeading: "प्रश्न प्रकार",
+    questionTypeBonuses: "सभ्यता बोनस",
+    questionTypeUnits: "विशिष्ट इकाइयाँ",
+    questionTypeTechs: "विशिष्ट तकनीकें",
+    questionTypeTeam: "टीम बोनस",
+    questionCountHeading: "प्रश्नों की संख्या",
+    startQuizButton: "प्रश्नोत्तरी शुरू करें",
+    settingsTitle: "सेटिंग्स",
+    lightMode: "लाइट मोड",
+    closeButton: "बंद करें",
+    resultsTitle: "प्रश्नोत्तरी सारांश",
+    resultsTotal: "कुल",
+    resultsCorrect: "सही",
+    resultsWrong: "गलत",
+    resultsAccuracy: "सटीकता",
+    rerunWrongOnly: "केवल गलत दोबारा करें",
+    createNewQuiz: "नई प्रश्नोत्तरी बनाएं",
+    noWrongAnswers: "कोई गलत उत्तर नहीं",
+    fallbackCivBonus: "सभ्यता बोनस",
+    fallbackUniqueUnit: "विशिष्ट इकाई",
+    fallbackUniqueTech: "विशिष्ट तकनीक",
+    fallbackTeamBonus: "टीम बोनस",
+    errorLoadingQuiz: "प्रश्नोत्तरी डेटा लोड करने में त्रुटि। कृपया पेज रीफ़्रेश करें।",
+  },
+  ms: {
+    pageTitle: "Kuiz Tamadun AoE2",
+    setupTitle: "Cipta kuiz",
+    setupDescription: "Pilih jenis soalan yang anda mahu, kemudian mulakan pusingan baharu dengan pilihan semasa anda.",
+    languageHeading: "Bahasa",
+    questionLanguageLabel: "Bahasa soalan",
+    questionTypesHeading: "Jenis soalan",
+    questionTypeBonuses: "Bonus tamadun",
+    questionTypeUnits: "Unit unik",
+    questionTypeTechs: "Teknologi unik",
+    questionTypeTeam: "Bonus pasukan",
+    questionCountHeading: "Bilangan soalan",
+    startQuizButton: "Mula kuiz",
+    settingsTitle: "Tetapan",
+    lightMode: "Mod cerah",
+    closeButton: "Tutup",
+    resultsTitle: "Ringkasan kuiz",
+    resultsTotal: "Jumlah",
+    resultsCorrect: "Betul",
+    resultsWrong: "Salah",
+    resultsAccuracy: "Ketepatan",
+    rerunWrongOnly: "Ulang hanya yang salah",
+    createNewQuiz: "Cipta kuiz baharu",
+    noWrongAnswers: "Tiada jawapan salah",
+    fallbackCivBonus: "Bonus tamadun",
+    fallbackUniqueUnit: "Unit unik",
+    fallbackUniqueTech: "Teknologi unik",
+    fallbackTeamBonus: "Bonus pasukan",
+    errorLoadingQuiz: "Ralat memuatkan data kuiz. Sila muat semula halaman.",
+  },
+};
+
+type UiKey = keyof typeof UI_STRINGS.en;
+let uiStrings: Record<UiKey, string> = UI_STRINGS.en;
 
 function loadSettings(): QuestionSettings {
   const saved = localStorage.getItem('questionSettings');
@@ -164,14 +586,18 @@ function loadSettings(): QuestionSettings {
       if (!parsed.theme) {
         parsed.theme = 'light';
       }
-      // Add nofun if it doesn't exist in old saved settings
-      if (parsed.nofun === undefined) {
-        parsed.nofun = false;
-      }
       if (parsed.questionCount === undefined) {
         parsed.questionCount = 10;
       }
-      return parsed;
+      return {
+        bonuses: parsed.bonuses ?? true,
+        units: parsed.units ?? true,
+        techs: parsed.techs ?? true,
+        team: parsed.team ?? true,
+        locale: parsed.locale ?? "en",
+        theme: parsed.theme ?? 'light',
+        questionCount: parsed.questionCount,
+      };
     } catch (e) {
       console.error('Failed to parse saved settings:', e);
     }
@@ -183,7 +609,6 @@ function loadSettings(): QuestionSettings {
     team: true,
     locale: "en",
     theme: 'light',
-    nofun: true,
     questionCount: 10,
   };
 }
@@ -208,6 +633,7 @@ async function loadLocale(locale: string): Promise<void> {
     const stringsJson = await readRepoFile(`data/locales/${locale}/strings.json`);
     localeStrings = JSON.parse(stringsJson);
     console.log(`Loaded locale: ${locale}`);
+    applyUiStrings(locale);
 
     // Update autocomplete suggestions with localized civ names
     updateAutocompleteSuggestions();
@@ -216,6 +642,8 @@ async function loadLocale(locale: string): Promise<void> {
     // Fallback to English if locale fails to load
     if (locale !== "en") {
       await loadLocale("en");
+    } else {
+      applyUiStrings("en");
     }
   }
 }
@@ -280,13 +708,57 @@ function normalizeAnswer(answer: string): string {
   return answer.toLowerCase().trim().replace(/\s+/g, ' ');
 }
 
+function uiText(key: UiKey): string {
+  return uiStrings[key] || UI_STRINGS.en[key] || key;
+}
+
+function applyUiStrings(locale: string): void {
+  uiStrings = (UI_STRINGS[locale] as Record<UiKey, string>) || UI_STRINGS.en;
+  document.documentElement.lang = locale;
+
+  const setText = (id: string, text: string) => {
+    const el = document.querySelector(`#${id}`);
+    if (el) el.textContent = text;
+  };
+
+  setText("setup-title", uiText("setupTitle"));
+  setText("setup-description", uiText("setupDescription"));
+  setText("language-heading", uiText("languageHeading"));
+  setText("question-language-label", uiText("questionLanguageLabel"));
+  setText("question-types-heading", uiText("questionTypesHeading"));
+  setText("question-type-bonuses", uiText("questionTypeBonuses"));
+  setText("question-type-units", uiText("questionTypeUnits"));
+  setText("question-type-techs", uiText("questionTypeTechs"));
+  setText("question-type-team", uiText("questionTypeTeam"));
+  setText("question-count-heading", uiText("questionCountHeading"));
+  setText("setup-start-button", uiText("startQuizButton"));
+  setText("settings-title", uiText("settingsTitle"));
+  setText("settings-close", uiText("closeButton"));
+  setText("results-title", uiText("resultsTitle"));
+  setText("results-total-label", uiText("resultsTotal"));
+  setText("results-correct-label", uiText("resultsCorrect"));
+  setText("results-wrong-label", uiText("resultsWrong"));
+  setText("results-accuracy-label", uiText("resultsAccuracy"));
+  updateQuestionTypeCounts();
+
+  const lightModeLabel = document.querySelector("#settings-modal .switch-row span");
+  if (lightModeLabel) lightModeLabel.textContent = uiText("lightMode");
+
+  if (newQuizButton) newQuizButton.textContent = uiText("createNewQuiz");
+  if (rerunWrongButton) {
+    rerunWrongButton.textContent = rerunWrongButton.disabled ? uiText("noWrongAnswers") : uiText("rerunWrongOnly");
+  }
+  if (settingsButton) settingsButton.setAttribute("aria-label", uiText("settingsTitle"));
+  document.title = "AoE2 Civilization Quiz";
+}
+
 function parseHelptext(helptext: string) {
   if (!helptext) return {};
 
   // Normalize whitespace between colon and </b> (e.g. "Spezialeinheiten: </b>" → "Spezialeinheiten:</b>")
   helptext = helptext.replace(/([:：])\s+<\/b>/g, '$1</b>');
 
-  let bonusesLocalized = 'Civ Bonus';
+  let bonusesLocalized = uiText('fallbackCivBonus');
   let uniqueUnitsLocalized = '';
   let uniqueTechsLocalized = '';
   let teamBonusLocalized = '';
@@ -351,7 +823,54 @@ function parseHelptext(helptext: string) {
   return { civType, bonuses, uniqueUnits, uniqueTechs, teamBonus, bonusesLocalized, uniqueUnitsLocalized, uniqueTechsLocalized, teamBonusLocalized };
 }
 
+function getQuestionTypeCounts(): QuestionTypeCounts {
+  if (!gameData) {
+    return { bonuses: 0, units: 0, techs: 0, team: 0 };
+  }
+
+  const counts: QuestionTypeCounts = { bonuses: 0, units: 0, techs: 0, team: 0 };
+
+  for (const civKey of Object.keys(gameData.civ_names)) {
+    const civHelptextId = gameData.civ_helptexts[civKey];
+    const localizedHelptext = getLocalizedString(civHelptextId);
+    const parsed = parseHelptext(localizedHelptext);
+
+    counts.bonuses += parsed.bonuses?.length ?? 0;
+    counts.units += parsed.uniqueUnits?.length ?? 0;
+    counts.techs += parsed.uniqueTechs?.length ?? 0;
+    counts.team += parsed.teamBonus ? 1 : 0;
+  }
+
+  return counts;
+}
+
+function updateQuestionTypeCounts(): void {
+  const counts = getQuestionTypeCounts();
+
+  const setCount = (id: string, value: number) => {
+    const el = document.querySelector(`#${id}`);
+    if (el) el.textContent = value.toString();
+  };
+
+  setCount("question-type-bonuses-count", counts.bonuses);
+  setCount("question-type-units-count", counts.units);
+  setCount("question-type-techs-count", counts.techs);
+  setCount("question-type-team-count", counts.team);
+}
+
 function generateQuestionSet(): QueuedQuestion[] {
+  const questions = buildQuestionPool(questionSettings);
+
+  // Fisher-Yates shuffle
+  for (let i = questions.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [questions[i], questions[j]] = [questions[j], questions[i]];
+  }
+
+  return questions.slice(0, questionSettings.questionCount);
+}
+
+function buildQuestionPool(settings: QuestionSettings): QueuedQuestion[] {
   if (!gameData) throw new Error("Game data not loaded");
 
   const questions: QueuedQuestion[] = [];
@@ -364,36 +883,34 @@ function generateQuestionSet(): QueuedQuestion[] {
     const parsed = parseHelptext(localizedHelptext);
 
     console.log(civKey, parsed);
-    if (questionSettings.bonuses && parsed.bonuses && parsed.bonuses.length > 0) {
+    if (settings.bonuses && parsed.bonuses && parsed.bonuses.length > 0) {
       for (const bonus of parsed.bonuses) {
-        questions.push({ label: parsed.bonusesLocalized ?? "Civ Bonus", text: bonus, civilization: localizedName });
+        questions.push({ label: parsed.bonusesLocalized ?? uiText("fallbackCivBonus"), text: bonus, civilization: localizedName });
       }
     }
 
-    if (questionSettings.units && parsed.uniqueUnits) {
+    if (settings.units && parsed.uniqueUnits) {
       for (const unit of parsed.uniqueUnits) {
-        questions.push({ label: parsed.uniqueUnitsLocalized ?? 'Unique Unit', text: unit, civilization: localizedName });
+        questions.push({ label: parsed.uniqueUnitsLocalized ?? uiText("fallbackUniqueUnit"), text: unit, civilization: localizedName });
       }
     }
 
-    if (questionSettings.techs && parsed.uniqueTechs) {
+    if (settings.techs && parsed.uniqueTechs) {
       for (const tech of parsed.uniqueTechs) {
-        questions.push({ label: parsed.uniqueTechsLocalized ?? 'Unique Tech', text: tech, civilization: localizedName });
+        questions.push({ label: parsed.uniqueTechsLocalized ?? uiText("fallbackUniqueTech"), text: tech, civilization: localizedName });
       }
     }
 
-    if (questionSettings.team && parsed.teamBonus) {
-      questions.push({ label: parsed.teamBonusLocalized ?? 'Team Bonus', text: parsed.teamBonus, civilization: localizedName });
+    if (settings.team && parsed.teamBonus) {
+      questions.push({ label: parsed.teamBonusLocalized ?? uiText("fallbackTeamBonus"), text: parsed.teamBonus, civilization: localizedName });
     }
   }
 
-  // Fisher-Yates shuffle
-  for (let i = questions.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [questions[i], questions[j]] = [questions[j], questions[i]];
-  }
+  return questions;
+}
 
-  return questions.slice(0, questionSettings.questionCount);
+function getMaxQuestionCount(settings: QuestionSettings = questionSettings): number {
+  return Math.max(1, buildQuestionPool(settings).length);
 }
 
 function animateScoreToScoresheet(onComplete: () => void) {
@@ -437,33 +954,74 @@ function addToScoresheet() {
   if (scoresheetValueEl) scoresheetValueEl.textContent = scoresheetTotal.toString();
 }
 
-function resetQuiz() {
-  questionQueue = generateQuestionSet();
+function showSetupScreen() {
+  const setupEl = document.querySelector("#quiz-setup") as HTMLElement | null;
+  const quizContainer = document.querySelector("#quiz-container") as HTMLElement | null;
+  if (setupEl) setupEl.style.display = "block";
+  if (quizContainer) quizContainer.style.display = "none";
+}
+
+function showQuizScreen() {
+  const setupEl = document.querySelector("#quiz-setup") as HTMLElement | null;
+  const quizContainer = document.querySelector("#quiz-container") as HTMLElement | null;
+  if (setupEl) setupEl.style.display = "none";
+  if (quizContainer) quizContainer.style.display = "block";
+}
+
+function hideResultsModal() {
+  if (resultsModal) resultsModal.style.display = "none";
+}
+
+function openResultsModal() {
+  if (resultsModal) resultsModal.style.display = "flex";
+}
+
+function renderResultsModal() {
+  const total = questionQueue.length;
+  const wrong = wrongQuestions.length;
+  const correct = score;
+  const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
+
+  const totalEl = document.querySelector("#results-total");
+  const correctEl = document.querySelector("#results-correct");
+  const wrongEl = document.querySelector("#results-wrong");
+  const accuracyEl = document.querySelector("#results-accuracy");
+  const rerunWrongButton = document.querySelector("#rerun-wrong-button") as HTMLButtonElement | null;
+
+  if (totalEl) totalEl.textContent = total.toString();
+  if (correctEl) correctEl.textContent = correct.toString();
+  if (wrongEl) wrongEl.textContent = wrong.toString();
+  if (accuracyEl) accuracyEl.textContent = `${accuracy}%`;
+  if (rerunWrongButton) {
+    rerunWrongButton.disabled = wrong === 0;
+    rerunWrongButton.textContent = wrong === 0 ? uiText("noWrongAnswers") : uiText("rerunWrongOnly");
+  }
+}
+
+function finishQuiz() {
+  animateScoreToScoresheet(() => {
+    addToScoresheet();
+    renderResultsModal();
+    openResultsModal();
+  });
+}
+
+function startQuiz(questions?: QueuedQuestion[]) {
+  hideResultsModal();
+  if (settingsModal) settingsModal.style.display = "none";
+  showQuizScreen();
+  questionQueue = questions ? [...questions] : generateQuestionSet();
   questionIndex = 0;
   score = 0;
+  wrongQuestions = [];
 
-  const scoreValueEl = document.querySelector("#score-value");
-  const totalValueEl = document.querySelector("#total-value");
-  if (scoreValueEl) scoreValueEl.textContent = "0";
-  if (totalValueEl) totalValueEl.textContent = questionQueue.length.toString();
   displayQuestion();
 }
 
 function displayQuestion() {
-  // If we've gone through all questions, transfer score to scoresheet and start new set
+  // If we've gone through all questions, show the final overview
   if (questionIndex >= questionQueue.length) {
-    animateScoreToScoresheet(() => {
-      addToScoresheet();
-      score = 0;
-    
-      questionQueue = generateQuestionSet();
-      questionIndex = 0;
-      const scoreValueEl = document.querySelector("#score-value");
-      const totalValueEl = document.querySelector("#total-value");
-      if (scoreValueEl) scoreValueEl.textContent = "0";
-      if (totalValueEl) totalValueEl.textContent = questionQueue.length.toString();
-      displayQuestion();
-    });
+    finishQuiz();
     return;
   }
 
@@ -477,8 +1035,6 @@ function displayQuestion() {
   const submitButton = document.querySelector("#submit-button") as HTMLButtonElement;
   const nextButton = document.querySelector("#next-button") as HTMLButtonElement;
 
-  const submitButtonNoFun = document.querySelector("#submit-button-nofun") as HTMLButtonElement;
-
   if (questionLabelEl && questionEl && imageContainer && feedbackEl && answerInput && submitButton && nextButton) {
     questionLabelEl.textContent = question.label;
     questionEl.textContent = question.text;
@@ -486,15 +1042,12 @@ function displayQuestion() {
     feedbackEl.innerHTML = "";
     answerInput.value = "";
     answerInput.disabled = false;
-    submitButton.classList.remove("fun-correct-celebrate", "playing");
-    if (questionSettings.nofun) {
-      submitButton.style.display = "none";
-      if (submitButtonNoFun) submitButtonNoFun.style.display = "flex";
-    } else {
-      submitButton.style.display = "block";
-      if (submitButtonNoFun) submitButtonNoFun.style.display = "none";
-    }
+    submitButton.style.display = "block";
     nextButton.style.display = "none";
+    const questionNumberEl = document.querySelector("#question-number");
+    const questionTotalEl = document.querySelector("#question-total");
+    if (questionNumberEl) questionNumberEl.textContent = (questionIndex + 1).toString();
+    if (questionTotalEl) questionTotalEl.textContent = questionQueue.length.toString();
     answerInput.focus();
   }
 }
@@ -507,7 +1060,6 @@ function checkAnswer(userAnswer: string) {
   const answerInput = document.querySelector("#answer-input") as HTMLInputElement;
   const submitButton = document.querySelector("#submit-button") as HTMLButtonElement;
   const nextButton = document.querySelector("#next-button") as HTMLButtonElement;
-  const scoreValueEl = document.querySelector("#score-value");
 
   const normalizedUser = normalizeAnswer(userAnswer);
   const normalizedCorrect = normalizeAnswer(question.civilization);
@@ -517,47 +1069,15 @@ function checkAnswer(userAnswer: string) {
     if (feedbackEl) {
       feedbackEl.innerHTML = `<div style="color: green; font-weight: bold;">✓ ${question.civilization}</div>`;
     }
-    const scoreEl = document.querySelector("#score");
-    if (scoreEl) {
-      createParticleEffect(scoreEl);
-    }
-    if (!questionSettings.nofun) {
-      spawnConfetti(30);
-    }
   } else {
+    wrongQuestions.push(question);
     if (feedbackEl) {
       feedbackEl.innerHTML = `<div style="color: red; font-weight: bold;">✗ ${question.civilization}</div>`;
     }
-    if (!questionSettings.nofun) {
-      triggerScreenShake();
-    }
   }
-
-  if (scoreValueEl) scoreValueEl.textContent = score.toString();
-
-  const submitButtonNoFun = document.querySelector("#submit-button-nofun") as HTMLButtonElement;
-
-  const isCorrect = normalizedUser === normalizedCorrect;
 
   if (answerInput) answerInput.disabled = true;
-  if (submitButtonNoFun) submitButtonNoFun.style.display = "none";
-
-  // In fun mode on correct answer: grow skeleton button and play animation
-  if (isCorrect && !questionSettings.nofun && submitButton) {
-    const animatedImg = submitButton.querySelector(".animated-img") as HTMLImageElement;
-    if (animatedImg) {
-      animatedImg.src = "/gifs/stan-twt-skeleton-banging-shield.gif?t=" + new Date().getTime();
-    }
-    submitButton.classList.add("playing");
-    submitButton.classList.add("fun-correct-celebrate");
-    submitButton.addEventListener("animationend", () => {
-      submitButton.classList.remove("fun-correct-celebrate");
-      submitButton.classList.remove("playing");
-      submitButton.style.display = "none";
-    }, { once: true });
-  } else {
-    if (submitButton) submitButton.style.display = "none";
-  }
+  if (submitButton) submitButton.style.display = "none";
 
   if (nextButton) {
     nextButton.style.display = "block";
@@ -567,42 +1087,158 @@ function checkAnswer(userAnswer: string) {
   questionIndex++;
 }
 
+const quizSetupForm = document.querySelector("#quiz-setup-form");
 const answerForm = document.querySelector("#answer-form");
 const nextButton = document.querySelector("#next-button");
-const localeDropdown = document.querySelector("#locale-dropdown") as HTMLSelectElement;
+const languagePickerModal = document.querySelector("#language-picker-modal") as HTMLElement;
+const languagePickerOptions = document.querySelector("#language-picker-options") as HTMLElement;
+const settingLocale = document.querySelector("#setting-locale") as HTMLSelectElement;
+const settingLightMode = document.querySelector("#setting-light-mode") as HTMLInputElement;
 const answerInput = document.querySelector("#answer-input") as HTMLInputElement;
+const appTitle = document.querySelector("#app-title") as HTMLHeadingElement | null;
 const settingsButton = document.querySelector("#settings-button") as HTMLButtonElement;
 const settingsModal = document.querySelector("#settings-modal") as HTMLElement;
 const settingsClose = document.querySelector("#settings-close") as HTMLButtonElement;
-const themeToggle = document.querySelector("#theme-toggle") as HTMLButtonElement;
-
-localeDropdown.value = questionSettings.locale;
+const resultsModal = document.querySelector("#results-modal") as HTMLElement;
+const setupStartButton = document.querySelector("#setup-start-button") as HTMLButtonElement | null;
+const newQuizButton = document.querySelector("#new-quiz-button") as HTMLButtonElement;
+const rerunWrongButton = document.querySelector("#rerun-wrong-button") as HTMLButtonElement;
 
 function applyTheme(theme: 'light' | 'dark') {
   if (theme === 'dark') {
     document.body.setAttribute('data-theme', 'dark');
-    if (themeToggle) themeToggle.textContent = '☀️';
   } else {
     document.body.removeAttribute('data-theme');
-    if (themeToggle) themeToggle.textContent = '🌙';
   }
 }
 
-function toggleTheme() {
-  questionSettings.theme = questionSettings.theme === 'light' ? 'dark' : 'light';
-  applyTheme(questionSettings.theme);
-  saveSettings(questionSettings);
+function hasSavedQuestionSettings(): boolean {
+  return localStorage.getItem('questionSettings') !== null;
 }
 
-// Apply saved theme and fun mode on load
+function renderLanguagePicker(): void {
+  if (!languagePickerOptions) return;
+
+  languagePickerOptions.innerHTML = "";
+  for (const option of LANGUAGE_OPTIONS) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "language-picker-option";
+    button.dataset.locale = option.locale;
+    button.textContent = option.label;
+    languagePickerOptions.appendChild(button);
+  }
+
+  languagePickerOptions.querySelectorAll("button").forEach((button) => {
+      button.addEventListener("click", async () => {
+      const locale = (button as HTMLButtonElement).dataset.locale;
+      if (!locale) return;
+      questionSettings.locale = locale;
+      saveSettings(questionSettings);
+      if (settingLocale) settingLocale.value = locale;
+      hideLanguagePicker();
+      await loadLocale(locale);
+      syncSettingsFormFromState();
+      showSetupScreen();
+    });
+  });
+}
+
+function showLanguagePicker(): void {
+  const setupEl = document.querySelector("#quiz-setup") as HTMLElement | null;
+  if (setupEl) setupEl.style.display = "none";
+  if (languagePickerModal) languagePickerModal.style.display = "flex";
+}
+
+function hideLanguagePicker(): void {
+  if (languagePickerModal) languagePickerModal.style.display = "none";
+}
+
+function syncSettingsFormFromState() {
+  const settingBonuses = document.querySelector("#setting-bonuses") as HTMLInputElement | null;
+  const settingUnits = document.querySelector("#setting-units") as HTMLInputElement | null;
+  const settingTechs = document.querySelector("#setting-techs") as HTMLInputElement | null;
+  const settingTeam = document.querySelector("#setting-team") as HTMLInputElement | null;
+  const settingQuestionCount = document.querySelector("#setting-question-count") as HTMLInputElement | null;
+  const questionCountValue = document.querySelector("#question-count-value") as HTMLElement | null;
+
+  if (settingBonuses) settingBonuses.checked = questionSettings.bonuses;
+  if (settingUnits) settingUnits.checked = questionSettings.units;
+  if (settingTechs) settingTechs.checked = questionSettings.techs;
+  if (settingTeam) settingTeam.checked = questionSettings.team;
+  const maxQuestions = getMaxQuestionCount(questionSettings);
+  const clampedQuestionCount = Math.min(questionSettings.questionCount, maxQuestions);
+  questionSettings.questionCount = clampedQuestionCount;
+  if (settingQuestionCount) {
+    settingQuestionCount.max = maxQuestions.toString();
+    settingQuestionCount.value = clampedQuestionCount.toString();
+  }
+  if (questionCountValue) questionCountValue.textContent = clampedQuestionCount.toString();
+  if (settingLocale) settingLocale.value = questionSettings.locale;
+  if (settingLightMode) settingLightMode.checked = questionSettings.theme === 'light';
+}
+
+function applySettingsFromSetupForm() {
+  const settingBonuses = document.querySelector("#setting-bonuses") as HTMLInputElement | null;
+  const settingUnits = document.querySelector("#setting-units") as HTMLInputElement | null;
+  const settingTechs = document.querySelector("#setting-techs") as HTMLInputElement | null;
+  const settingTeam = document.querySelector("#setting-team") as HTMLInputElement | null;
+  const settingQuestionCount = document.querySelector("#setting-question-count") as HTMLInputElement | null;
+  const questionCountValue = document.querySelector("#question-count-value") as HTMLElement | null;
+
+  const updatedSettings = {
+    ...questionSettings,
+    bonuses: settingBonuses?.checked ?? false,
+    units: settingUnits?.checked ?? false,
+    techs: settingTechs?.checked ?? false,
+    team: settingTeam?.checked ?? false,
+  };
+
+  if (!updatedSettings.bonuses && !updatedSettings.units && !updatedSettings.techs && !updatedSettings.team) {
+    questionSettings = updatedSettings;
+    saveSettings(questionSettings);
+    updateSetupStartButtonState();
+    return;
+  }
+
+  const maxQuestions = getMaxQuestionCount(updatedSettings);
+  if (settingQuestionCount) {
+    settingQuestionCount.max = maxQuestions.toString();
+    const parsed = parseInt(settingQuestionCount.value, 10);
+    if (Number.isFinite(parsed) && parsed >= 1) {
+      updatedSettings.questionCount = Math.min(parsed, maxQuestions);
+    } else {
+      updatedSettings.questionCount = Math.min(updatedSettings.questionCount, maxQuestions);
+    }
+    settingQuestionCount.value = updatedSettings.questionCount.toString();
+  } else {
+    updatedSettings.questionCount = Math.min(updatedSettings.questionCount, maxQuestions);
+  }
+
+  if (questionCountValue) questionCountValue.textContent = updatedSettings.questionCount.toString();
+
+  questionSettings = updatedSettings;
+  saveSettings(questionSettings);
+  updateSetupStartButtonState();
+}
+
+function getSelectedQuestionTypeCount(): number {
+  return ["#setting-bonuses", "#setting-units", "#setting-techs", "#setting-team"].reduce((count, selector) => {
+    const input = document.querySelector(selector) as HTMLInputElement | null;
+    return count + (input?.checked ? 1 : 0);
+  }, 0);
+}
+
+function updateSetupStartButtonState(): void {
+  if (!setupStartButton) return;
+  setupStartButton.disabled = getSelectedQuestionTypeCount() === 0;
+}
+
+// Apply saved theme on load
 applyTheme(questionSettings.theme);
-applyFunMode(questionSettings.nofun);
 
 async function initApp() {
   try {
-    // Set up event listeners
-
-
     // Load game data
     const data_json_str = await readRepoFile("data/data.json");
     gameData = JSON.parse(data_json_str);
@@ -613,15 +1249,31 @@ async function initApp() {
     await loadLocale(questionSettings.locale);
     // console.log(localeStrings);
 
+    renderLanguagePicker();
+    syncSettingsFormFromState();
+    updateSetupStartButtonState();
+    if (hasSavedQuestionSettings()) {
+      showSetupScreen();
+    } else {
+      showLanguagePicker();
+    }
 
-    // Theme toggle
-    if (themeToggle) {
-      themeToggle.addEventListener("click", toggleTheme);
+    if (appTitle) {
+      appTitle.addEventListener("click", () => {
+        hideResultsModal();
+        hideLanguagePicker();
+        if (settingsModal) settingsModal.style.display = "none";
+        syncSettingsFormFromState();
+        updateSetupStartButtonState();
+        showSetupScreen();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
     }
 
     // Settings modal
     if (settingsButton && settingsModal) {
       settingsButton.addEventListener("click", () => {
+        syncSettingsFormFromState();
         settingsModal.style.display = "flex";
       });
     }
@@ -632,97 +1284,91 @@ async function initApp() {
       });
     }
 
-    // Settings checkboxes
-    const settingBonuses = document.querySelector("#setting-bonuses") as HTMLInputElement;
-    const settingUnits = document.querySelector("#setting-units") as HTMLInputElement;
-    const settingTechs = document.querySelector("#setting-techs") as HTMLInputElement;
-    const settingTeam = document.querySelector("#setting-team") as HTMLInputElement;
-    const settingNoFun = document.querySelector("#setting-nofun") as HTMLInputElement;
-    const settingQuestionCount = document.querySelector("#setting-question-count") as HTMLInputElement;
-
-    // Load saved settings into checkboxes
-    if (settingBonuses) settingBonuses.checked = questionSettings.bonuses;
-    if (settingUnits) settingUnits.checked = questionSettings.units;
-    if (settingTechs) settingTechs.checked = questionSettings.techs;
-    if (settingTeam) settingTeam.checked = questionSettings.team;
-    if (settingNoFun) settingNoFun.checked = questionSettings.nofun;
-    if (settingQuestionCount) settingQuestionCount.value = questionSettings.questionCount.toString();
-
-    // Update button visibility based on No Fun Mode
-    const updateButtonVisibility = () => {
-      const submitButton = document.querySelector("#submit-button") as HTMLButtonElement;
-      const submitButtonNoFun = document.querySelector("#submit-button-nofun") as HTMLButtonElement;
-
-      if (questionSettings.nofun) {
-        if (submitButton) submitButton.style.display = "none";
-        if (submitButtonNoFun) submitButtonNoFun.style.display = "flex";
-      } else {
-        if (submitButton) submitButton.style.display = "block";
-        if (submitButtonNoFun) submitButtonNoFun.style.display = "none";
-      }
-    };
-
-    // Initial button visibility
-    updateButtonVisibility();
-
-    [settingBonuses, settingUnits, settingTechs, settingTeam].forEach(checkbox => {
-      if (checkbox) {
-        checkbox.addEventListener("change", () => {
-          questionSettings.bonuses = settingBonuses?.checked || false;
-          questionSettings.units = settingUnits?.checked || false;
-          questionSettings.techs = settingTechs?.checked || false;
-          questionSettings.team = settingTeam?.checked || false;
-
-          // Ensure at least one is checked
-          if (!questionSettings.bonuses && !questionSettings.units &&
-            !questionSettings.techs && !questionSettings.team) {
-            checkbox.checked = true;
-            if (checkbox === settingBonuses) questionSettings.bonuses = true;
-            if (checkbox === settingUnits) questionSettings.units = true;
-            if (checkbox === settingTechs) questionSettings.techs = true;
-            if (checkbox === settingTeam) questionSettings.team = true;
-          }
-
-          // Save settings and regenerate question set
-          saveSettings(questionSettings);
-          resetQuiz();
-        });
-      }
-    });
-
-    // Handle No Fun Mode toggle
-    if (settingNoFun) {
-      settingNoFun.addEventListener("change", () => {
-        questionSettings.nofun = settingNoFun.checked;
-        updateButtonVisibility();
-        applyFunMode(questionSettings.nofun);
+    if (settingLightMode) {
+      settingLightMode.addEventListener("change", () => {
+        questionSettings.theme = settingLightMode.checked ? 'light' : 'dark';
+        applyTheme(questionSettings.theme);
         saveSettings(questionSettings);
       });
     }
 
-    // Handle question count change
+    if (settingLocale) {
+      settingLocale.addEventListener("change", async (e) => {
+        const target = e.target as HTMLSelectElement;
+        questionSettings.locale = target.value;
+        saveSettings(questionSettings);
+        await loadLocale(target.value);
+      });
+    }
+
+    if (quizSetupForm) {
+      quizSetupForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        if (getSelectedQuestionTypeCount() === 0) {
+          updateSetupStartButtonState();
+          return;
+        }
+        applySettingsFromSetupForm();
+        hideLanguagePicker();
+        startQuiz();
+      });
+    }
+
+    const setupCheckboxes = [
+      document.querySelector("#setting-bonuses"),
+      document.querySelector("#setting-units"),
+      document.querySelector("#setting-techs"),
+      document.querySelector("#setting-team"),
+    ];
+
+    setupCheckboxes.forEach((element) => {
+      if (!element) return;
+      element.addEventListener("change", (event) => {
+        applySettingsFromSetupForm();
+      });
+    });
+
+    const settingQuestionCount = document.querySelector("#setting-question-count") as HTMLInputElement | null;
     if (settingQuestionCount) {
-      settingQuestionCount.addEventListener("change", () => {
-        const val = parseInt(settingQuestionCount.value, 10);
-        if (val >= 1) {
-          questionSettings.questionCount = val;
+      const syncSliderDisplay = () => {
+        const questionCountValue = document.querySelector("#question-count-value") as HTMLElement | null;
+        if (questionCountValue) questionCountValue.textContent = settingQuestionCount.value;
+      };
+
+      settingQuestionCount.addEventListener("input", () => {
+        const parsed = parseInt(settingQuestionCount.value, 10);
+        if (Number.isFinite(parsed) && parsed >= 1) {
+          questionSettings.questionCount = parsed;
           saveSettings(questionSettings);
-          resetQuiz();
+        }
+        syncSliderDisplay();
+      });
+
+      settingQuestionCount.addEventListener("change", () => {
+        applySettingsFromSetupForm();
+      });
+    }
+
+    if (newQuizButton) {
+      newQuizButton.addEventListener("click", () => {
+        hideResultsModal();
+        hideLanguagePicker();
+        syncSettingsFormFromState();
+        updateSetupStartButtonState();
+        showSetupScreen();
+      });
+    }
+
+    if (rerunWrongButton) {
+      rerunWrongButton.addEventListener("click", () => {
+        if (wrongQuestions.length > 0) {
+          startQuiz(wrongQuestions);
         }
       });
     }
 
     if (answerInput) {
       answerInput.addEventListener("input", handleAutocompleteInput);
-
-      // Fun mode typing effects: particles, screen shake, character size pop
-      answerInput.addEventListener("input", () => {
-        if (questionSettings.nofun || answerInput.disabled) return;
-        const pos = getCaretPixelPosition(answerInput);
-        spawnTypingParticles(pos.x, pos.y);
-        triggerTypingShake();
-        triggerInputPop(answerInput);
-      });
 
       // Handle backspace to delete selection AND last typed character
       answerInput.addEventListener("keydown", (e) => {
@@ -750,67 +1396,13 @@ async function initApp() {
       });
     }
 
-    // Handle submit button GIF animation on hover/click
-    const submitButton = document.querySelector("#submit-button") as HTMLButtonElement;
-    const animatedImg = submitButton?.querySelector(".animated-img") as HTMLImageElement;
-
-    if (submitButton && animatedImg) {
-      const gifSrc = "/gifs/stan-twt-skeleton-banging-shield.gif";
-      let animationTimeout: number | null = null;
-
-      const playAnimation = () => {
-        // Reload GIF to restart from beginning
-        animatedImg.src = gifSrc + "?t=" + new Date().getTime();
-        submitButton.classList.add("playing");
-
-        // Clear any existing timeout
-        if (animationTimeout) {
-          clearTimeout(animationTimeout);
-        }
-
-        // Stop animation after GIF duration (estimate ~2 seconds)
-        animationTimeout = window.setTimeout(() => {
-          submitButton.classList.remove("playing");
-        }, 2000);
-      };
-
-      const stopAnimation = () => {
-        if (animationTimeout) {
-          clearTimeout(animationTimeout);
-        }
-        submitButton.classList.remove("playing");
-      };
-
-      // Desktop: hover
-      submitButton.addEventListener("mouseenter", playAnimation);
-      submitButton.addEventListener("mouseleave", stopAnimation);
-
-      // Mobile/Touch: touchstart
-      submitButton.addEventListener("touchstart", () => {
-        playAnimation();
-      });
-
-      // All devices: click
-      submitButton.addEventListener("click", playAnimation);
-    }
-
     if (answerForm) {
       answerForm.addEventListener("submit", (e) => {
         e.preventDefault();
-
-        // Check which button is visible and act accordingly
-        const submitButton = document.querySelector("#submit-button") as HTMLButtonElement;
-        const submitButtonNoFun = document.querySelector("#submit-button-nofun") as HTMLButtonElement;
         const nextButton = document.querySelector("#next-button") as HTMLButtonElement;
 
-        const submitVisible = (submitButton && submitButton.style.display !== "none") ||
-                              (submitButtonNoFun && submitButtonNoFun.style.display !== "none");
-
-        if (submitVisible) {
-          // Submit answer (guard against double-submit when input is disabled)
-          if (answerInput && answerInput.value.trim() && !answerInput.disabled) {
-            checkAnswer(answerInput.value);
-          }
+        if (answerInput && answerInput.value.trim() && !answerInput.disabled) {
+          checkAnswer(answerInput.value);
         } else if (nextButton && nextButton.style.display !== "none") {
           // Go to next question
           displayQuestion();
@@ -825,26 +1417,9 @@ async function initApp() {
       });
     }
 
-    if (localeDropdown) {
-      localeDropdown.addEventListener("change", async (e) => {
-        const target = e.target as HTMLSelectElement;
-        await loadLocale(target.value);
-        questionSettings.locale = target.value;
-        saveSettings(questionSettings);
-        resetQuiz();
-      });
-    }
-
     // Restore scoresheet from localStorage
     const scoresheetValueEl = document.querySelector("#scoresheet-value");
     if (scoresheetValueEl) scoresheetValueEl.textContent = scoresheetTotal.toString();
-
-    // Generate question set and display first question
-    questionQueue = generateQuestionSet();
-    questionIndex = 0;
-    const totalValueEl = document.querySelector("#total-value");
-    if (totalValueEl) totalValueEl.textContent = questionQueue.length.toString();
-    displayQuestion();
 
   } catch (error) {
     console.error("Failed to initialize quiz:", error);
