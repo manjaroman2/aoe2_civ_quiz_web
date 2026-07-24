@@ -1,12 +1,14 @@
 import './styles.css';
 
 interface GameData {
-  civ_names: Record<string, string>;
-  civ_helptexts: Record<string, string>;
+  civs: Record<string, {
+    help_string_id: number,
+    name_string_id: number,
+  }>;
 }
 
 interface LocaleStrings {
-  [key: string]: string;
+  [key: number]: string;
 }
 
 interface QueuedQuestion {
@@ -23,6 +25,9 @@ let score = 0;
 let wrongQuestions: QueuedQuestion[] = [];
 let allCivNames: string[] = [];
 let scoresheetTotal = parseInt(localStorage.getItem('scoresheetTotal') || '0', 10);
+const AOE2_DATA_CACHE = "aoe2techtree-json-v2";
+const AOE2_DATA_BASE_URL = "https://raw.githubusercontent.com/SiegeEngineers/aoe2techtree/master/";
+const AOE2_DATA_FALLBACK_BASE_URL = "https://raw.githubusercontent.com/SiegeEngineers/aoe2techtree/master/";
 
 interface QuestionSettings {
   bonuses: boolean;
@@ -618,14 +623,45 @@ function saveSettings(settings: QuestionSettings): void {
 }
 
 let questionSettings: QuestionSettings = loadSettings();
-console.log(questionSettings);
+console.log("Queston Settings:", questionSettings);
 
 async function readRepoFile(filePath: string): Promise<string> {
-  const response = await fetch(`/aoe2techtree/${filePath}`);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch ${filePath}: ${response.statusText}`);
+  const url = `${AOE2_DATA_BASE_URL}${filePath}`;
+  const cacheKey = new Request(url, { method: "GET" });
+
+  if (!("caches" in window)) {
+    for (const sourceUrl of [url, `${AOE2_DATA_FALLBACK_BASE_URL}${filePath}`]) {
+      const response = await fetch(sourceUrl);
+      if (response.ok) {
+        return await response.text();
+      }
+    }
+    throw new Error(`Failed to fetch ${filePath} from all available sources`);
   }
-  return await response.text();
+
+  const cache = await caches.open(AOE2_DATA_CACHE);
+  const cachedResponse = await cache.match(cacheKey);
+  if (cachedResponse) {
+    return await cachedResponse.text();
+  }
+
+  let lastError: Error | null = null;
+  for (const sourceUrl of [url, `${AOE2_DATA_FALLBACK_BASE_URL}${filePath}`]) {
+    try {
+      const response = await fetch(sourceUrl);
+      if (!response.ok) {
+        lastError = new Error(`Failed to fetch ${filePath}: ${response.statusText}`);
+        continue;
+      }
+
+      await cache.put(cacheKey, response.clone());
+      return await response.text();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+    }
+  }
+
+  throw lastError ?? new Error(`Failed to fetch ${filePath} from all available sources`);
 }
 
 async function loadLocale(locale: string): Promise<void> {
@@ -652,9 +688,8 @@ function updateAutocompleteSuggestions(): void {
   if (!gameData) return;
 
   // Get all civilization names in current locale
-  allCivNames = Object.keys(gameData.civ_names).map(civKey => {
-    const civNameId = gameData!.civ_names[civKey];
-    return getLocalizedString(civNameId);
+  allCivNames = Object.keys(gameData.civs).map(civKey => {
+    return getLocalizedString(gameData!.civs[civKey].name_string_id);
   }).sort();
 }
 
@@ -700,8 +735,8 @@ function handleAutocompleteInput(event: Event): void {
   }
 }
 
-function getLocalizedString(stringId: string): string {
-  return localeStrings[stringId] || stringId;
+function getLocalizedString(stringId: number): string {
+  return localeStrings[stringId] || `${stringId}`;
 }
 
 function normalizeAnswer(answer: string): string {
@@ -830,8 +865,8 @@ function getQuestionTypeCounts(): QuestionTypeCounts {
 
   const counts: QuestionTypeCounts = { bonuses: 0, units: 0, techs: 0, team: 0 };
 
-  for (const civKey of Object.keys(gameData.civ_names)) {
-    const civHelptextId = gameData.civ_helptexts[civKey];
+  for (const civKey of Object.keys(gameData.civs)) {
+    const civHelptextId = gameData.civs[civKey].help_string_id;
     const localizedHelptext = getLocalizedString(civHelptextId);
     const parsed = parseHelptext(localizedHelptext);
 
@@ -875,9 +910,9 @@ function buildQuestionPool(settings: QuestionSettings): QueuedQuestion[] {
 
   const questions: QueuedQuestion[] = [];
 
-  for (const civKey of Object.keys(gameData.civ_names)) {
-    const civNameId = gameData.civ_names[civKey];
-    const civHelptextId = gameData.civ_helptexts[civKey];
+  for (const civKey of Object.keys(gameData.civs)) {
+    const civNameId = gameData.civs[civKey].name_string_id;
+    const civHelptextId = gameData.civs[civKey].help_string_id;
     const localizedName = getLocalizedString(civNameId);
     const localizedHelptext = getLocalizedString(civHelptextId);
     const parsed = parseHelptext(localizedHelptext);
@@ -1243,7 +1278,6 @@ async function initApp() {
     const data_json_str = await readRepoFile("data/data.json");
     gameData = JSON.parse(data_json_str);
     console.log("Game data loaded successfully");
-    // console.log(gameData);
 
     // Load default locale (English)
     await loadLocale(questionSettings.locale);
