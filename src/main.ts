@@ -724,6 +724,11 @@ function handleAutocompleteInput(event: Event): void {
     return;
   }
 
+  // Don't complete when composing
+  if (inputEvent.isComposing) {
+    return;
+  }
+
   const currentValue = input.value;
   const bestMatch = findBestMatch(currentValue);
 
@@ -809,7 +814,7 @@ function parseHelptext(helptext: string) {
   let blockStartIndex = 0;
   for (let i = 0; i < helptext.length; i++) {
     const c = helptext[i];
-    if (helptext.slice(i, i+5) === ":</b>" || helptext.slice(i, i+5) === "：</b>") {
+    if (helptext.slice(i, i + 5) === ":</b>" || helptext.slice(i, i + 5) === "：</b>") {
       if (inBlock === "bonus") {
         const block = helptext.slice(blockStartIndex, lineStartIndex).trim().replace(/<br>/g, "").replace(/<\/b>/g, "").replace(/\n/g, "").trim();
         bonuses.push(...block.split("•").filter((line) => line.length > 0).map((line) => line.trim()));
@@ -917,7 +922,7 @@ function buildQuestionPool(settings: QuestionSettings): QueuedQuestion[] {
     const localizedHelptext = getLocalizedString(civHelptextId);
     const parsed = parseHelptext(localizedHelptext);
 
-    console.log(civKey, parsed);
+    // console.log(civKey, parsed);
     if (settings.bonuses && parsed.bonuses && parsed.bonuses.length > 0) {
       for (const bonus of parsed.bonuses) {
         questions.push({ label: parsed.bonusesLocalized ?? uiText("fallbackCivBonus"), text: bonus, civilization: localizedName });
@@ -1165,7 +1170,7 @@ function renderLanguagePicker(): void {
   }
 
   languagePickerOptions.querySelectorAll("button").forEach((button) => {
-      button.addEventListener("click", async () => {
+    button.addEventListener("click", async () => {
       const locale = (button as HTMLButtonElement).dataset.locale;
       if (!locale) return;
       questionSettings.locale = locale;
@@ -1277,7 +1282,6 @@ async function initApp() {
     // Load game data
     const data_json_str = await readRepoFile("data/data.json");
     gameData = JSON.parse(data_json_str);
-    console.log("Game data loaded successfully");
 
     // Load default locale (English)
     await loadLocale(questionSettings.locale);

@@ -47,3 +47,7 @@ Or use Git:
 ## TODO
 
 - improve mobile experience
+- rework civ selection, give a list of civs depending on 
+  what was typed and let the user press some hotkeys to select a civ fast 
+- memorize the question that were wrong across runs like a training system
+- export questions
