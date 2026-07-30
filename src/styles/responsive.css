@@ -1,0 +1,183 @@
+@media (max-width: 768px) {
+  :root {
+    font-size: 14px;
+  }
+
+  .container {
+    padding-top: 70px;
+    padding-left: 15px;
+    padding-right: 15px;
+  }
+
+  #header-bar {
+    padding: 12px;
+  }
+
+  h1 {
+    font-size: 1.4em;
+  }
+
+  #settings-button {
+    min-width: 0;
+    padding: 0.7em 1.2em;
+    flex-shrink: 0;
+  }
+
+  #quiz-container {
+    width: 100%;
+    max-width: calc(100% - 30px);
+    padding: 15px;
+    border-width: 1px;
+    margin: 0 auto;
+  }
+
+  #question {
+    font-size: 1.2em;
+    min-height: 3.5em;
+    padding: 0 10px;
+  }
+
+  #answer-form {
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    align-items: center;
+  }
+
+  #answer-input {
+    max-width: 100%;
+    width: 100%;
+    padding: 0.8em 1em;
+    font-size: 1em;
+  }
+
+  #submit-button {
+    width: 60px;
+    height: 60px;
+    font-size: 2em;
+  }
+
+  #next-button {
+    width: 60px;
+    height: 60px;
+    font-size: 2em;
+  }
+
+  #settings-content {
+    padding: 20px;
+    width: 85%;
+    max-width: 350px;
+  }
+
+  #quiz-setup {
+    max-width: calc(100vw - 30px);
+  }
+
+  #quiz-setup-content {
+    padding: 20px;
+  }
+
+  #language-picker-content {
+    padding: 24px 18px;
+  }
+
+  #language-picker-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #results-content {
+    padding: 20px;
+    width: 85%;
+    max-width: 350px;
+  }
+
+  #results-stats {
+    grid-template-columns: 1fr;
+  }
+
+  #feedback {
+    font-size: 1em;
+  }
+
+  input,
+  button {
+    padding: 0.7em 1.2em;
+  }
+}
+
+@media (max-width: 480px) {
+  #header-bar {
+    padding: 10px;
+  }
+
+  h1 {
+    font-size: 1.4em;
+    word-wrap: break-word;
+  }
+
+  #quiz-container {
+    width: 100%;
+    max-width: calc(100% - 20px);
+    padding: 12px;
+  }
+
+  #question {
+    font-size: 1.3em;
+    min-height: 3em;
+  }
+
+  #settings-content {
+    padding: 15px;
+    width: 90%;
+  }
+
+  #quiz-setup {
+    max-width: calc(100vw - 20px);
+  }
+
+  #quiz-setup-content,
+  #results-content {
+    padding: 16px;
+  }
+
+  #language-picker-options {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 360px) {
+  :root {
+    font-size: 12px;
+  }
+
+  .container {
+    padding-top: 60px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  #settings-button {
+    width: auto;
+    min-width: 44px;
+    max-width: auto;
+  }
+}
+
+/* Touch-friendly adjustments */
+@media (hover: none) and (pointer: coarse) {
+  button,
+  input[type="checkbox"],
+  select {
+    min-height: 44px;
+  }
+
+  button {
+    min-width: 44px;
+  }
+
+  #settings-button {
+    min-height: 44px;
+    padding: 0.8em 1.2em;
+  }
+
+}

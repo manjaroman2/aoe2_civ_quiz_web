@@ -1,0 +1,51 @@
+:root {
+  color: var(--color-text);
+  background-color: var(--color-background);
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+html {
+  background-color: var(--color-background);
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background-color: var(--color-background);
+  color: var(--color-text);
+}
+
+* {
+  max-width: 100%;
+}
+
+a {
+  font-weight: 500;
+  color: var(--color-link);
+  text-decoration: inherit;
+}
+
+a:hover {
+  color: var(--color-link-hover);
+}
+
+
+#quiz-content,
+#settings-content,
+#results-content,
+#language-picker-content,
+#quiz-container,
+#header-bar {
+  user-select: none;
+}
+
+input,
+select,
+textarea {
+  user-select: text;
+}

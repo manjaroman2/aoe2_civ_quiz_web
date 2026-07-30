@@ -1,4 +1,4 @@
-import './styles.css';
+import './styles/styles.css';
 
 interface GameData {
   civs: Record<string, {

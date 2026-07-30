@@ -1,0 +1,41 @@
+:root {
+  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 24px;
+
+  --color-text: #0f0f0f;
+  --color-background: #f6f6f6;
+  --color-input-bg: #ffffff;
+  --color-input-text: #0f0f0f;
+  --color-button-bg: #ffffff;
+  --color-button-text: #0f0f0f;
+  --color-button-hover-bg: #e8e8e8;
+  --color-border: #ccc;
+  --color-border-hover: #396cd8;
+  --color-primary: #396cd8;
+  --color-primary-hover: #2d5bb8;
+  --color-link: #646cff;
+  --color-link-hover: #535bf2;
+  --color-question-label: #666;
+  --color-modal-overlay: rgba(0,0,0,.5);
+  --color-shadow: rgba(0,0,0,.2);
+}
+
+body[data-theme="dark"] {
+  --color-text: #f6f6f6;
+  --color-background: #2f2f2f;
+  --color-input-bg: #0f0f0f98;
+  --color-input-text: #fff;
+  --color-button-bg: #0f0f0f98;
+  --color-button-text: #fff;
+  --color-button-hover-bg: #0f0f0f69;
+  --color-border: #555;
+  --color-primary: #a8c7ff;
+  --color-primary-hover: #c4d9ff;
+  --color-border-hover: #396cd8;
+  --color-link: #646cff;
+  --color-link-hover: #24c8db;
+  --color-question-label: #aaa;
+  --color-modal-overlay: rgba(0,0,0,.7);
+  --color-shadow: rgba(0,0,0,.4);
+}

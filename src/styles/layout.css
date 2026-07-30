@@ -1,0 +1,56 @@
+.container {
+  padding-top: 80px;
+  padding-left: 10px;
+  padding-right: 10px;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.row {
+  display: flex;
+  justify-content: center;
+}
+
+#header-bar {
+  position: fixed;
+  inset: 0 0 auto 0;
+
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  padding: 15px;
+  z-index: 100;
+}
+
+#header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.8em;
+}
+
+#app-title {
+  cursor: pointer;
+}
+
+#app-title:hover {
+  opacity: .85;
+  text-decoration: underline;
+}
+
+#quiz-container,
+.container,
+#answer-form {
+  max-width: 100%;
+}

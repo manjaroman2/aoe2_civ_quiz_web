@@ -1,0 +1,56 @@
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: .75s;
+}
+
+.logo.vite:hover {
+  filter: drop-shadow(0 0 2em #747bff);
+}
+
+.logo.typescript:hover {
+  filter: drop-shadow(0 0 2em #2d79c7);
+}
+
+.logo.tauri:hover {
+  filter: drop-shadow(0 0 2em #24c8db);
+}
+
+input,
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: .6em 1.2em;
+
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+
+  color: var(--color-input-text);
+  background-color: var(--color-button-bg);
+
+  box-shadow: 0 2px 2px var(--color-shadow);
+}
+
+button {
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--color-border-hover);
+}
+
+button:active {
+  border-color: var(--color-border-hover);
+  background-color: var(--color-button-hover-bg);
+}
+
+input,
+button {
+  outline: none;
+}
+
+#greet-input {
+  margin-right: 5px;
+}
