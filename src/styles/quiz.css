@@ -57,9 +57,48 @@
   box-sizing: border-box;
 }
 
-#answer-input {
+.answer-form-input-container {
   flex: 1;
   max-width: 300px;
+  position: relative;
+}
+
+#answer-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+#suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+
+  background: var(--color-background);
+  border: 1px solid #888;
+  border-radius: 4px;
+
+  max-height: 200px;
+  overflow-y: auto;
+
+  z-index: 1000;
+}
+
+#suggestions:empty {
+  display: none;
+}
+
+#suggestions li {
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+#suggestions li:hover {
+  background: rgba(128, 128, 128, 0.2);
 }
 
 #answer-input::selection {

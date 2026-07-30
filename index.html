@@ -131,13 +131,17 @@
         </div>
 
         <form id="answer-form">
-          <input
-            type="text"
-            id="answer-input"
-            placeholder="..."
-            autocomplete="off"
-            spellcheck="false"
-          />
+          <div class="answer-form-input-container">
+            <input
+              type="text"
+              id="answer-input"
+              placeholder="..."
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <ul id="suggestions">
+            </ul>
+          </div>
           <button type="submit" id="submit-button">→</button>
           <button type="button" id="next-button" style="display: none;">→</button>
         </form>

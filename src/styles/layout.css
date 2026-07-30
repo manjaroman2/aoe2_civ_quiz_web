@@ -48,9 +48,3 @@ h1 {
   opacity: .85;
   text-decoration: underline;
 }
-
-#quiz-container,
-.container,
-#answer-form {
-  max-width: 100%;
-}
